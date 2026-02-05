@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>system</title>
+  <link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+
+<!-- CRT Screen Frame -->
+<div id="screen-frame">
+  <div id="main-area">
+    <div id="header">SECTOR: ---</div>
+    <div id="content">
+      <div id="output"></div>
+      <div id="options-container">
+        <div id="options"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="side-panel">
+    <div id="station-status">
+      <div class="status-title">STATION</div>
+      <div class="status-row"><span class="status-label">POWER</span><span class="status-value" id="power-value">---</span></div>
+      <div class="status-row"><span class="status-label">COMMS</span><span class="status-value" id="comms-value">---</span></div>
+      <div class="status-row"><span class="status-label">INTEGRITY</span><span class="status-value" id="integrity-value">---</span></div>
+      <div class="status-row" id="cycle-row" style="display: none;"><span class="status-label">CYCLES</span><span class="status-value" id="cycle-value">---</span></div>
+    </div>
+    <div id="current-location">
+      LOCATION
+      <span class="location-name">---</span>
+    </div>
+    <div id="map-container"></div>
+    <div id="room-list">
+      <div class="room-title">SECTORS</div>
+    </div>
+    <div id="perspective-indicator">
+      AWARENESS
+      <span class="perspective-name">---</span>
+    </div>
+  </div>
+
+  <div id="transition"></div>
+</div>
+
+<!-- Boot Sequence Overlay -->
+<div id="boot-sequence">
+  <div id="boot-content">
+    <div id="boot-loading"><span class="dots"></span></div>
+    <div id="boot-init"></div>
+    <div id="boot-type-label"></div>
+    <div id="boot-type"></div>
+    <div id="boot-functions"></div>
+  </div>
+</div>
+
+<!-- Perspective Transition Overlay -->
+<div id="perspective-transition">
+  <div class="transition-text"></div>
+  <div class="stats"></div>
+</div>
+
+<!-- Ending Overlay -->
+<div id="fade">
+  <div id="end-field"></div>
+  <div class="end-text"></div>
+</div>
+
+<!-- Intro Overlay -->
+<div id="intro">
+  <div id="intro-text"></div>
+</div>
+
+<!-- Scripts (order matters) -->
+<script src="js/content.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/main.js"></script>
+
+</body>
+</html>

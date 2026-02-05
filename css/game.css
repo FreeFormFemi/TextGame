@@ -1,0 +1,771 @@
+/* ============================================
+   GAME STYLES
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400&display=swap');
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #050505;
+  color: #e0e0e0;
+  font-family: "IBM Plex Mono", monospace;
+  overflow: hidden;
+}
+
+/* ============================================
+   CRT SCREEN FRAME
+   ============================================ */
+
+#screen-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(900px, 95vw);
+  height: min(85vh, 650px);
+  background: #0e0e0f;
+  border-radius: 12px;
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: row;
+  box-shadow:
+    0 0 60px rgba(180, 200, 180, 0.03),
+    0 0 100px rgba(150, 180, 150, 0.02),
+    inset 0 0 80px rgba(0, 0, 0, 0.4);
+}
+
+/* Scanlines overlay */
+#screen-frame::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.15) 2px,
+    rgba(0, 0, 0, 0.15) 4px
+  );
+  pointer-events: none;
+  border-radius: 12px;
+  z-index: 10;
+}
+
+/* ============================================
+   MAIN GAME AREA
+   ============================================ */
+
+#main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-right: 20px;
+}
+
+#header {
+  font-size: 11px;
+  color: #555;
+  letter-spacing: 1.5px;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+#content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#output {
+  flex: 1;
+  overflow-y: auto;
+  font-size: 15px;
+  line-height: 1.7;
+  scrollbar-width: none;
+  padding-right: 8px;
+}
+
+#output::-webkit-scrollbar { display: none; }
+
+/* ============================================
+   TEXT PARAGRAPHS
+   ============================================ */
+
+.paragraph {
+  margin-bottom: 16px;
+  opacity: 0;
+  animation: fadeIn 0.5s ease forwards;
+}
+
+.paragraph.previous {
+  opacity: 0.35;
+  animation: none;
+}
+
+@keyframes fadeIn { to { opacity: 1; } }
+
+.paragraph.environment {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  color: #9a9a9a;
+  background: rgba(255, 255, 255, 0.015);
+  padding: 12px 14px;
+  border-left: 2px solid #2a2a2a;
+  letter-spacing: 0.3px;
+  line-height: 1.8;
+}
+
+.paragraph.notice {
+  color: #888;
+  font-size: 14px;
+  margin-top: 8px;
+  opacity: 0;
+  animation: fadeInSlow 0.6s ease 1.5s forwards;
+}
+
+@keyframes fadeInSlow { to { opacity: 0.9; } }
+
+.paragraph.interior {
+  color: #7a8a7a;
+  font-style: italic;
+  padding-left: 16px;
+  border-left: 1px solid #2a2a2a;
+  margin-left: 4px;
+  font-size: 14px;
+}
+
+/* Terminal/log readout - data being accessed */
+.paragraph.terminal-data {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  color: #8a8a8a;
+  background: rgba(0,0,0,0.3);
+  padding: 10px 12px;
+  margin: 8px 0;
+  border-left: 2px solid #3a3a3a;
+  white-space: pre-line;
+}
+
+/* Decay threshold warning - subtle system notice */
+.paragraph.decay-notice {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: #5a5a5a;
+  letter-spacing: 0.5px;
+  margin: 16px 0 12px 0;
+  padding: 6px 0;
+  border-top: 1px solid #1a1a1a;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.paragraph.system-alert {
+  color: #a88;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  border-left: 2px solid #644;
+  padding-left: 12px;
+  margin: 12px 0;
+}
+
+.paragraph.system-prompt {
+  color: #888;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  white-space: pre-line;
+  background: rgba(255,255,255,0.02);
+  padding: 12px;
+  margin: 12px 0;
+}
+
+/* ============================================
+   OPTIONS
+   ============================================ */
+
+#options-container {
+  margin-top: 20px;
+  min-height: 120px;
+  flex-shrink: 0;
+}
+
+#actions-section {
+  margin-bottom: 8px;
+}
+
+.nav-separator {
+  border-top: 1px solid #222;
+  margin: 12px 0 10px 0;
+  opacity: 0.5;
+}
+
+.nav-label {
+  font-size: 9px;
+  color: #3a3a3a;
+  letter-spacing: 1.5px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.option {
+  color: #7a7a7a;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  padding: 3px 0;
+  font-size: 14px;
+}
+
+.option.action-option {
+  color: #8a8a8a;
+}
+
+.option.action-option:hover { color: #d0d0d0; }
+.option.action-option.selected { color: #e8e8e8; }
+
+.option.nav-option {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #5a5a5a;
+  font-size: 12px;
+}
+
+.option.nav-option:hover { color: #888; }
+.option.nav-option.selected { color: #aaa; }
+
+.bullet {
+  color: #666;
+  margin-right: 10px;
+  font-weight: 500;
+}
+
+.nav-arrow {
+  color: #444;
+  margin-right: 8px;
+  font-size: 11px;
+}
+
+/* Generic option hover/selected (fallback) */
+.option:hover { color: #d0d0d0; }
+.option.selected { color: #e8e8e8; }
+
+/* Blinking cursor */
+.cursor {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background: #666;
+  margin-left: 4px;
+  animation: blink 1.2s step-end infinite;
+  vertical-align: middle;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* ============================================
+   SIDE PANEL
+   ============================================ */
+
+#side-panel {
+  width: 160px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #222;
+  padding-left: 20px;
+}
+
+#current-location {
+  font-size: 10px;
+  color: #666;
+  letter-spacing: 1px;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+}
+
+#current-location .location-name {
+  color: #aaa;
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+#map-container {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+  line-height: 1.4;
+  color: #444;
+  margin-bottom: 20px;
+  white-space: pre;
+}
+
+#map-container .current {
+  color: #aaa;
+  font-weight: 500;
+}
+
+#map-container .adjacent {
+  color: #666;
+}
+
+#room-list {
+  flex: 1;
+}
+
+#room-list .room-title {
+  font-size: 9px;
+  color: #444;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.room-item {
+  font-size: 11px;
+  color: #444;
+  padding: 4px 0;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.room-item:hover { color: #888; }
+.room-item.current { color: #aaa; }
+.room-item.adjacent { color: #666; }
+.room-item.locked { color: #333; cursor: default; }
+.room-item.locked:hover { color: #333; }
+
+#perspective-indicator {
+  font-size: 9px;
+  color: #444;
+  letter-spacing: 1px;
+  margin-top: auto;
+  padding-top: 15px;
+  border-top: 1px solid #222;
+  text-transform: uppercase;
+}
+
+#perspective-indicator .perspective-name {
+  color: #666;
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+}
+
+/* ============================================
+   EFFECTS & TRANSITIONS
+   ============================================ */
+
+#screen-frame.flicker {
+  animation: screenFlicker 0.15s ease;
+}
+
+@keyframes screenFlicker {
+  0% { opacity: 1; }
+  25% { opacity: 0.7; }
+  50% { opacity: 0.9; }
+  75% { opacity: 0.75; }
+  100% { opacity: 1; }
+}
+
+/* Light UI glitch for Wanderer death */
+#screen-frame.glitch {
+  animation: glitchPulse 0.3s ease infinite;
+}
+
+@keyframes glitchPulse {
+  0% {
+    transform: translate(-50%, -50%);
+    filter: none;
+  }
+  20% {
+    transform: translate(-50.3%, -50.1%);
+    filter: hue-rotate(10deg);
+  }
+  40% {
+    transform: translate(-49.8%, -50%);
+    filter: none;
+  }
+  60% {
+    transform: translate(-50.1%, -49.8%);
+    filter: saturate(1.2);
+  }
+  80% {
+    transform: translate(-50%, -50.2%);
+    filter: none;
+  }
+  100% {
+    transform: translate(-50%, -50%);
+    filter: none;
+  }
+}
+
+#transition {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #0e0e0f;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: 12px;
+  z-index: 5;
+  transition: opacity 0.15s ease;
+}
+
+#transition.active {
+  opacity: 1;
+}
+
+/* ============================================
+   ENDINGS
+   ============================================ */
+
+#fade {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 2.5s ease;
+  z-index: 100;
+}
+
+#fade.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+#fade.white {
+  background: #fff;
+}
+
+#fade .end-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14px;
+  letter-spacing: 2px;
+  opacity: 0;
+  transition: opacity 1s ease 2s;
+}
+
+#fade.active .end-text {
+  opacity: 1;
+}
+
+/* ============================================
+   PERSPECTIVE TRANSITION
+   ============================================ */
+
+#perspective-transition {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  transition: opacity 1s ease;
+}
+
+#perspective-transition.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+#perspective-transition .transition-text {
+  color: #555;
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+#perspective-transition.active .transition-text {
+  opacity: 1;
+}
+
+#perspective-transition .stats {
+  color: #444;
+  font-size: 11px;
+  text-align: left;
+  opacity: 0;
+  transition: opacity 0.8s ease 0.5s;
+}
+
+#perspective-transition.active .stats {
+  opacity: 1;
+}
+
+/* ============================================
+   BOOT SEQUENCE
+   ============================================ */
+
+#boot-sequence {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #050505;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 150;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.8s ease;
+}
+
+#boot-sequence.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+#boot-content {
+  text-align: center;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+#boot-loading {
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 30px;
+  height: 20px;
+}
+
+#boot-loading .dots {
+  display: inline-block;
+}
+
+#boot-loading .dots::after {
+  content: '';
+  animation: pulseDots 1.5s infinite;
+}
+
+@keyframes pulseDots {
+  0% { content: '.'; }
+  25% { content: '..'; }
+  50% { content: '...'; }
+  75% { content: '..'; }
+  100% { content: '.'; }
+}
+
+#boot-init {
+  font-size: 11px;
+  color: #444;
+  letter-spacing: 2px;
+  margin-bottom: 24px;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+#boot-init.visible { opacity: 1; }
+
+#boot-type-label {
+  font-size: 10px;
+  color: #3a3a3a;
+  letter-spacing: 1.5px;
+  margin-bottom: 8px;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+#boot-type-label.visible { opacity: 1; }
+
+#boot-type {
+  font-size: 24px;
+  color: #c8c8c8;
+  letter-spacing: 6px;
+  font-weight: 500;
+  margin-bottom: 30px;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+#boot-type.visible { opacity: 1; }
+
+#boot-functions {
+  font-size: 12px;
+  color: #666;
+  line-height: 2;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+#boot-functions.visible { opacity: 1; }
+
+#boot-functions .function-line {
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+#boot-functions .function-line.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Wanderer glitch effect */
+#boot-sequence.glitchy #boot-type {
+  animation: textGlitch 0.3s infinite;
+}
+
+@keyframes textGlitch {
+  0% { transform: translateX(0); opacity: 1; }
+  20% { transform: translateX(-2px); opacity: 0.8; }
+  40% { transform: translateX(2px); opacity: 1; }
+  60% { transform: translateX(-1px); opacity: 0.6; }
+  80% { transform: translateX(1px); opacity: 0.9; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+#boot-sequence.glitchy #boot-loading .dots::after {
+  animation: glitchDots 0.8s infinite;
+}
+
+@keyframes glitchDots {
+  0% { content: '.'; }
+  15% { content: '...'; }
+  30% { content: '.'; }
+  45% { content: '..'; }
+  60% { content: '.'; }
+  75% { content: '...'; }
+  90% { content: '..'; }
+  100% { content: '.'; }
+}
+
+/* ============================================
+   STATION STATUS (side panel)
+   ============================================ */
+
+#station-status {
+  margin-bottom: 15px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #1a1a1a;
+  opacity: 0;
+  transition: opacity 1s ease;
+}
+
+#station-status.visible {
+  opacity: 1;
+}
+
+#station-status .status-title {
+  font-size: 9px;
+  color: #3a3a3a;
+  letter-spacing: 1.5px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+#station-status .status-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+#station-status .status-label {
+  color: #444;
+}
+
+#station-status .status-value {
+  color: #666;
+}
+
+/* ============================================
+   INTRO
+   ============================================ */
+
+#intro {
+  position: fixed;
+  inset: 0;
+  background: #050505;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 200;
+  opacity: 1;
+  transition: opacity 1.5s ease;
+}
+
+#intro.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#intro-text {
+  width: 580px;
+  max-width: 85vw;
+  text-align: center;
+}
+
+#intro-text .intro-line {
+  font-size: 14px;
+  line-height: 1.9;
+  color: #888;
+  margin: 5px 0;
+  opacity: 0;
+  transition: opacity 1.4s ease;
+}
+
+#intro-text .intro-line.visible {
+  opacity: 0.85;
+}
+
+#intro-text .intro-line.faded {
+  opacity: 0.15;
+}
+
+#intro-text .intro-line.final {
+  color: #c8c8c8;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.6px;
+}
+
+#intro-text .intro-line.final.visible {
+  opacity: 0.95;
+}
+
+#intro-text.settled {
+  transform: translateY(-20px);
+  transition: transform 0.8s ease;
+}
+
+#intro-text .intro-spacer {
+  height: 16px;
+}
+
+/* ============================================
+   DECAY STATES
+   ============================================ */
+
+.decay-1 .paragraph.environment { color: #8a8a8a; }
+.decay-2 .paragraph.environment { color: #7a7a7a; }
+.decay-3 .paragraph.environment { color: #5a5a5a; }
