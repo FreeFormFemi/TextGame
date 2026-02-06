@@ -274,7 +274,7 @@ function triggerInheritorChoice() {
 
 function makeInheritorChoice(choice) {
   const choiceData = CRITICAL_CHOICES.inheritor_release;
-  state.flags.inheritor_choice = choice;
+  state.flags.inheritor_final_choice = choice;
   advanceTime();
   clearOutput();
 
@@ -581,6 +581,7 @@ function startGame() {
 function init() {
   initDOMReferences();
   initInputHandling();
+  initHiddenConfig();
   playIntro(startGame);
 }
 

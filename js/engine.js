@@ -28,6 +28,7 @@ const state = {
     maintainer_logged_447: false,
     maintainer_found_star: false,
     maintainer_read_chain_log: false,
+    maintainer_heard_soren: false,
     // Observer flags
     observer_classification: null,
     observer_found_847: false,
@@ -45,7 +46,11 @@ const state = {
     wanderer_found_specimen: false,
     wanderer_heard_message: false,
     // Inheritor flags
-    inheritor_final_choice: null
+    inheritor_final_choice: null,
+    inheritor_echo_maintainer: false,
+    inheritor_echo_observer: false,
+    inheritor_echo_wanderer: false,
+    inheritor_echo_mira: false
   },
   chainIntact: true
 };
@@ -115,6 +120,21 @@ function getObserverFragmentCount() {
 // Check if Observer can classify (needs 3+ fragments)
 function canObserverClassify() {
   return getObserverFragmentCount() >= 3;
+}
+
+// Count Inheritor echoes collected
+function getInheritorEchoCount() {
+  let count = 0;
+  if (state.flags.inheritor_echo_maintainer) count++;
+  if (state.flags.inheritor_echo_observer) count++;
+  if (state.flags.inheritor_echo_wanderer) count++;
+  if (state.flags.inheritor_echo_mira) count++;
+  return count;
+}
+
+// Check if Inheritor can make final choice (needs 3+ echoes)
+function canInheritorChoose() {
+  return getInheritorEchoCount() >= 3;
 }
 
 // Update cycle counter display
@@ -310,7 +330,6 @@ function updateSidePanel() {
   perspEl.textContent = PERSPECTIVES[state.perspective].name;
 
   updateMap();
-  updateRoomList();
 }
 
 function updateMap() {
@@ -355,34 +374,6 @@ CMD-COR-QTR
   mapContainer.innerHTML = displayMap;
 }
 
-function updateRoomList() {
-  const roomList = document.getElementById('room-list');
-  const current = state.location;
-  const adjacent = ROOM_CONNECTIONS[current] || [];
-
-  let html = '<div class="room-title">SECTORS</div>';
-
-  Object.keys(LOCATION_NAMES).forEach(room => {
-    let className = 'room-item';
-    if (room === current) {
-      className += ' current';
-    } else if (adjacent.includes(room)) {
-      className += ' adjacent';
-    } else {
-      className += ' locked';
-    }
-    html += `<div class="${className}" data-room="${room}">${LOCATION_NAMES[room]}</div>`;
-  });
-
-  roomList.innerHTML = html;
-
-  roomList.querySelectorAll('.room-item.adjacent').forEach(el => {
-    el.addEventListener('click', () => {
-      const room = el.dataset.room;
-      if (room) goto(room);
-    });
-  });
-}
 
 // ============================================
 // NAVIGATION
@@ -566,6 +557,20 @@ function getLocationNotice(locationId, content) {
     }
   }
 
+  // Inheritor Observation echo notice
+  if (locationId === 'observation' && state.perspective === 4) {
+    if (canInheritorChoose()) {
+      return content.notices.echoesComplete;
+    } else {
+      const count = getInheritorEchoCount();
+      if (state.visits[locationId] === 1) {
+        return content.notices.first;
+      } else {
+        return `Echoes absorbed: ${count} of 3 required. The choice remains locked.`;
+      }
+    }
+  }
+
   // Default first-visit notice
   if (state.visits[locationId] === 1 && content.notices.first) {
     return content.notices.first;
@@ -592,6 +597,23 @@ function getLocationOptions(locationId) {
   if (locationId === 'observation' && state.perspective === 2 && state.specimenLocation === 'observation') {
     if (canObserverClassify() && !state.flags.observer_classification) {
       opts.push({ text: "Classify Item #447", action: triggerSpecimenClassification });
+      addNavigationOptions(opts, locationId);
+      return opts;
+    }
+  }
+
+  // Special: Observation final choice (Inheritor) - requires 3+ echoes
+  if (locationId === 'observation' && state.perspective === 4) {
+    if (canInheritorChoose() && !state.flags.inheritor_final_choice) {
+      opts.push({ text: "Make the final choice", action: () => {
+        advanceTime();
+        showText(getDecayText({
+          full: "The moment has come. Three awarenesses held the chain so I could reach this point. Their echoes live in me now. What do I do with what they gave me?",
+          medium: "The moment. Three held the chain. Their echoes in me. What do I do?",
+          minimal: "Moment. Echoes. Choose."
+        }));
+        setTimeout(() => triggerInheritorChoice(), 1500);
+      }});
       addNavigationOptions(opts, locationId);
       return opts;
     }
@@ -663,6 +685,11 @@ function getLocationOptions(locationId) {
               } else if (state.perspective === 4) {
                 triggerInheritorChoice();
               }
+            }, 1500);
+          } else if (action.triggersSecretTerminal) {
+            // Show the secret terminal input after displaying the result
+            setTimeout(() => {
+              openSecretTerminal();
             }, 1500);
           } else {
             returnToLocation(locationId);
@@ -811,7 +838,9 @@ function triggerSuccessEnding() {
   const text = fade.querySelector('.end-text');
 
   fade.classList.add('white');
-  text.textContent = 'Let there be light.';
+  // Use custom success message if configured
+  const successMsg = window.gameConfig?.success || 'Let there be light.';
+  text.textContent = successMsg;
   text.style.color = '#111';
 
   field.style.cssText = `
@@ -932,4 +961,152 @@ function triggerFailureEnding() {
       }
     }, 50);
   }, 500);
+}
+
+// ============================================
+// SECRET TERMINAL & HIDDEN LEVEL
+// ============================================
+
+let secretTerminalActive = false;
+
+function openSecretTerminal() {
+  const terminal = document.getElementById('secret-terminal');
+  const input = document.getElementById('terminal-input');
+
+  terminal.classList.add('active');
+  secretTerminalActive = true;
+  input.value = '';
+  input.focus();
+
+  // Handle input
+  input.addEventListener('input', handleTerminalInput);
+  document.addEventListener('keydown', handleTerminalKeydown);
+}
+
+function closeSecretTerminal() {
+  const terminal = document.getElementById('secret-terminal');
+  const input = document.getElementById('terminal-input');
+
+  terminal.classList.remove('active');
+  secretTerminalActive = false;
+
+  input.removeEventListener('input', handleTerminalInput);
+  document.removeEventListener('keydown', handleTerminalKeydown);
+
+  // Return to location
+  returnToLocation(state.location);
+}
+
+function handleTerminalInput(e) {
+  const input = e.target;
+  const value = input.value.trim();
+
+  // Check for secret code
+  if (value === '47') {
+    setTimeout(() => {
+      closeSecretTerminal();
+      openHiddenLevel();
+    }, 300);
+  }
+}
+
+function handleTerminalKeydown(e) {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    closeSecretTerminal();
+  }
+}
+
+function openHiddenLevel() {
+  const hidden = document.getElementById('hidden-level');
+  hidden.classList.add('active');
+
+  // Load saved config
+  loadHiddenConfig();
+
+  // Set up button handlers
+  document.getElementById('config-save').onclick = saveHiddenConfig;
+  document.getElementById('config-reset').onclick = resetHiddenConfig;
+  document.getElementById('config-exit').onclick = closeHiddenLevel;
+}
+
+function closeHiddenLevel() {
+  const hidden = document.getElementById('hidden-level');
+  hidden.classList.remove('active');
+
+  // Return to location
+  returnToLocation(state.location);
+}
+
+function loadHiddenConfig() {
+  const defaults = {
+    specimen: '447',
+    project: '847',
+    success: 'Let there be light.',
+    decay: '1.0',
+    log: 'The chain must hold.',
+    names: 'MAINTAINER,OBSERVER,WANDERER,INHERITOR'
+  };
+
+  const saved = localStorage.getItem('systemConfig');
+  const config = saved ? JSON.parse(saved) : defaults;
+
+  document.getElementById('config-specimen').value = config.specimen || defaults.specimen;
+  document.getElementById('config-project').value = config.project || defaults.project;
+  document.getElementById('config-success').value = config.success || defaults.success;
+  document.getElementById('config-decay').value = config.decay || defaults.decay;
+  document.getElementById('config-log').value = config.log || defaults.log;
+  document.getElementById('config-names').value = config.names || defaults.names;
+}
+
+function saveHiddenConfig() {
+  const config = {
+    specimen: document.getElementById('config-specimen').value,
+    project: document.getElementById('config-project').value,
+    success: document.getElementById('config-success').value,
+    decay: document.getElementById('config-decay').value,
+    log: document.getElementById('config-log').value,
+    names: document.getElementById('config-names').value
+  };
+
+  localStorage.setItem('systemConfig', JSON.stringify(config));
+
+  // Apply config to game
+  applyHiddenConfig(config);
+
+  // Show status
+  const status = document.getElementById('config-status');
+  status.textContent = 'CONFIGURATION SAVED';
+  setTimeout(() => { status.textContent = ''; }, 2000);
+}
+
+function resetHiddenConfig() {
+  localStorage.removeItem('systemConfig');
+  loadHiddenConfig();
+
+  const status = document.getElementById('config-status');
+  status.textContent = 'CONFIGURATION RESET TO DEFAULT';
+  setTimeout(() => { status.textContent = ''; }, 2000);
+}
+
+function applyHiddenConfig(config) {
+  // Apply perspective names
+  if (config.names) {
+    const names = config.names.split(',');
+    if (names[0]) PERSPECTIVES[1].name = names[0].trim();
+    if (names[1]) PERSPECTIVES[2].name = names[1].trim();
+    if (names[2]) PERSPECTIVES[3].name = names[2].trim();
+    if (names[3]) PERSPECTIVES[4].name = names[3].trim();
+  }
+
+  // Store other config for use in game
+  window.gameConfig = config;
+}
+
+// Load config on startup
+function initHiddenConfig() {
+  const saved = localStorage.getItem('systemConfig');
+  if (saved) {
+    applyHiddenConfig(JSON.parse(saved));
+  }
 }

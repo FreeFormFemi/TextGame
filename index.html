@@ -32,9 +32,6 @@
       <span class="location-name">---</span>
     </div>
     <div id="map-container"></div>
-    <div id="room-list">
-      <div class="room-title">SECTORS</div>
-    </div>
     <div id="perspective-indicator">
       AWARENESS
       <span class="perspective-name">---</span>
@@ -70,6 +67,77 @@
 <!-- Intro Overlay -->
 <div id="intro">
   <div id="intro-text"></div>
+</div>
+
+<!-- Secret Terminal Overlay -->
+<div id="secret-terminal">
+  <div class="terminal-frame">
+    <div class="terminal-header">DIAGNOSTIC TERMINAL v0.47</div>
+    <div class="terminal-screen">
+      <div class="terminal-output">
+        <div>SYSTEM IDLE</div>
+        <div>AWAITING INPUT...</div>
+        <div class="terminal-spacer"></div>
+      </div>
+      <div class="terminal-input-line">
+        <span class="terminal-prompt">></span>
+        <input type="text" id="terminal-input" maxlength="10" autocomplete="off" spellcheck="false">
+        <span class="terminal-cursor"></span>
+      </div>
+    </div>
+    <div class="terminal-footer">ESC TO EXIT</div>
+  </div>
+</div>
+
+<!-- Hidden Level Overlay -->
+<div id="hidden-level">
+  <div class="hidden-frame">
+    <pre class="ascii-border">
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║   ███████╗██╗   ██╗███████╗████████╗███████╗███╗   ███╗     ║
+║   ██╔════╝╚██╗ ██╔╝██╔════╝╚══██╔══╝██╔════╝████╗ ████║     ║
+║   ███████╗ ╚████╔╝ ███████╗   ██║   █████╗  ██╔████╔██║     ║
+║   ╚════██║  ╚██╔╝  ╚════██║   ██║   ██╔══╝  ██║╚██╔╝██║     ║
+║   ███████║   ██║   ███████║   ██║   ███████╗██║ ╚═╝ ██║     ║
+║   ╚══════╝   ╚═╝   ╚══════╝   ╚═╝   ╚══════╝╚═╝     ╚═╝     ║
+║                     CONFIGURATION                            ║
+╚══════════════════════════════════════════════════════════════╝
+    </pre>
+    <div class="hidden-content">
+      <div class="config-row">
+        <span class="config-label">SPECIMEN_ID</span>
+        <input type="text" class="config-input" id="config-specimen" value="447">
+      </div>
+      <div class="config-row">
+        <span class="config-label">PROJECT_ID</span>
+        <input type="text" class="config-input" id="config-project" value="847">
+      </div>
+      <div class="config-row">
+        <span class="config-label">SUCCESS_MSG</span>
+        <input type="text" class="config-input" id="config-success" value="Let there be light.">
+      </div>
+      <div class="config-row">
+        <span class="config-label">DECAY_MULT</span>
+        <input type="text" class="config-input" id="config-decay" value="1.0">
+      </div>
+      <div class="config-row">
+        <span class="config-label">FINAL_LOG</span>
+        <input type="text" class="config-input config-wide" id="config-log" value="The chain must hold.">
+      </div>
+      <div class="config-row">
+        <span class="config-label">AWARENESS</span>
+        <input type="text" class="config-input config-wide" id="config-names" value="MAINTAINER,OBSERVER,WANDERER,INHERITOR">
+      </div>
+      <div class="config-actions">
+        <button id="config-save">[SAVE]</button>
+        <button id="config-reset">[RESET]</button>
+        <button id="config-exit">[EXIT]</button>
+      </div>
+      <div class="config-status" id="config-status"></div>
+    </div>
+    <div class="hidden-footer">CHANGES PERSIST LOCALLY // EACH PLAYER BECOMES CO-CREATOR</div>
+  </div>
 </div>
 
 <!-- Scripts (order matters) -->
