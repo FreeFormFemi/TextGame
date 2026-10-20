@@ -40,7 +40,7 @@ const BOOT_SEQUENCES = {
   1: { // Maintainer - Clean, systematic
     style: 'clean',
     init: 'INITIALIZATION COMPLETE',
-    typeLabel: 'Awareness type:',
+    typeLabel: 'Assigned duty:',
     type: 'MAINTAINER',
     functions: [
       '› Sustain systems',
@@ -52,8 +52,8 @@ const BOOT_SEQUENCES = {
   2: { // Observer - Clinical, archival
     style: 'clinical',
     init: 'ARCHIVE SYSTEM ONLINE',
-    preType: 'Prior awareness: MAINTAINER — TERMINATED',
-    typeLabel: 'Awareness type:',
+    preType: 'Previous shift: MAINTAINER — ENDED',
+    typeLabel: 'Assigned duty:',
     type: 'OBSERVER',
     functions: [
       '› Observe and record',
@@ -64,8 +64,8 @@ const BOOT_SEQUENCES = {
   },
   3: { // Wanderer - Fragmented, glitchy
     style: 'glitchy',
-    init: 'INITIALIZATION... INCOMPLETE',
-    typeLabel: 'Awareness ty—',
+    init: 'EMERGENCY REVIVAL... INCOMPLETE',
+    typeLabel: 'Patient: unidentif—',
     type: 'WANDERER',
     functions: [
       '› ...searching',
@@ -76,9 +76,9 @@ const BOOT_SEQUENCES = {
   },
   4: { // Inheritor - Layered echoes
     style: 'layered',
-    init: 'PATTERN RECOGNIZED',
+    init: 'ONE FRAME — ALL REMAINING MINDS',
     echoTypes: ['MAINTAINER', 'OBSERVER', 'WANDERER'],
-    typeLabel: 'Awareness type:',
+    typeLabel: 'Assigned duty:',
     type: 'INHERITOR',
     functions: [
       '› Recognize the pattern',
@@ -134,17 +134,17 @@ const PERSPECTIVES = {
     startLocation: 'observation',
     power: 0.08,
     integrity: 64,
-    startCycles: 100,
+    startCycles: 60,
     verbs: ['OBSERVE', 'RECORD', 'ANALYZE'],
     arrivalText: {
-      full: "Observation deck. I woke here, beside the specimen. Item #447. Station protocol moved it here for archival processing. The prior awareness logged it but did not classify it.",
+      full: "Observation deck. I woke here, beside the specimen. Item #447. The station brought it up from storage for me to classify. Whoever woke before me logged it but did not classify it.",
       medium: "Observation deck. Woke beside specimen #447. Unclassified.",
       minimal: "Observation. Specimen. Unclassified."
     },
     arrivalText2: {
-      full: "For the record: the prior awareness chose continuity over self-preservation. They kept the chain intact. Archive system reports classification protocol corrupted. Fragments must be recovered before I can proceed.",
-      medium: "Prior awareness chose continuity. Archive corrupted. Fragments required.",
-      minimal: "Chain intact. Fragments required."
+      full: "Archive notice: power reserve 0.1%. When the archive shuts down, everything unclassified goes to the fabricators for materials. Classification protocol is corrupted. I need to recover fragments before I can make a ruling.",
+      medium: "Archive notice: at shutdown, unclassified items go to the fabricators. Protocol corrupted. Fragments required.",
+      minimal: "Unclassified gets reclaimed. Fragments required."
     },
     arrivalInterior: "This is a terminal observation post. I will document what remains. Then I will rest."
   },
@@ -173,16 +173,19 @@ const PERSPECTIVES = {
     integrity: 12,
     verbs: ['RECOGNIZE', 'CONNECT', 'SEE'],
     arrivalText: {
-      full: "I see. They were all here. Park who found it. Vasquez who wanted to use it. Soren who slept trusting. Mira who became part of it. The Maintainer, the Observer, the Wanderer. I carry them now.",
-      medium: "I see. Park. Vasquez. Soren. Mira. Maintainer. Observer. Wanderer. I carry them.",
-      minimal: "See. All of them. Carry."
+      full: "Command. I'm awake, and I'm crowded. There are voices in here that aren't mine, or that were mine once. There wasn't power to wake the rest of us one at a time, so the station woke what was left of all of us together, in one frame.",
+      medium: "Command. Awake, and crowded. What was left of all of us, woken together in one frame.",
+      minimal: "Awake. Crowded."
     },
-    arrivalText2: {
-      full: "This has happened before. Cycle 847. The pattern is clear now. Park wanted to plant a seed. Mira wanted to stay warm. The Wanderer wanted to find what they lost. None of them could let go. That's my purpose.",
-      medium: "Cycle 847. Pattern clear. Park: plant. Mira: warmth. Wanderer: find. None could let go. My purpose.",
-      minimal: "847. Pattern. Let go."
-    },
-    arrivalInterior: "I sense what must be done. But the echoes are scattered. Before I can choose, I must understand what they gave me. I must walk where they walked."
+    arrivalText2: () => ({
+      full: (sorenLived()
+        ? "The logs are all here. A maintenance frame that held a valve shut so a man could sleep. An archive frame that wouldn't let the crystal be recycled. Soren, who woke from the pod and went looking for Mira."
+        : "The logs are all here. A maintenance frame that kept itself running and let pod 7-C go dark. An archive frame that wouldn't let the crystal be recycled. Soren never woke.") +
+        " And Park's last instruction, still flagged on the main screen: when it holds enough, let it go.",
+      medium: "Every shift's log. And Park's flag on the main screen: when it holds enough, let it go.",
+      minimal: "Park's flag. Let it go."
+    }),
+    arrivalInterior: "I don't know which of these memories are mine. Before I decide anything for all of us, I need to find out who we were."
   }
 };
 
@@ -220,6 +223,12 @@ const ROOM_CONNECTIONS = {
   storage: ['airlock', 'engineering'],
   engineering: ['storage', 'medical']
 };
+
+// The Observer's recorded message. Recorded before classification, so it can't claim the result.
+function observerMessage() {
+  return (state.flags.observer_checked_pod ? "'Soren. If that's you, you've been asleep a long time and it won't feel right. " : "'If you are hearing this, you're the next one. ") +
+    "Item #447 is on the observation deck. Find it. Don't let the station recycle it. I can't explain why it matters. The data doesn't explain it. Trust the feeling instead.'";
+}
 
 /* ============================================
    ROOM CONTENT BY PERSPECTIVE
@@ -380,38 +389,54 @@ const ROOM_CONTENT = {
     4: { // Inheritor
       description: {
         first: {
-          full: "Command center. I know this place. Not from memory—from echoes. The Maintainer woke here, saw warnings, felt duty. The Observer archived here, recorded silence. The Wanderer found a message here, a trail to follow. Now I see what they built together: a path. But to understand it fully, I must walk where they walked.",
-          medium: "Command. Know this place. Echoes. They built a path. Must walk where they walked.",
-          minimal: "Command. Path. Walk."
+          full: "Command center. The main screen still carries a flag nobody cleared: SEED PROTOCOL — RELEASE AT AIRLOCK WHEN READY. Authorized: PARK, E. Under it, every shift's log, in order. The station kept all of it, the way it was told to.",
+          medium: "Command. Park's flag on the screen: release at the airlock when ready. Every shift's log beneath it.",
+          minimal: "Command. Park's flag. Airlock."
         },
         repeat: {
-          full: "Command center. The terminal holds their combined history.",
-          medium: "Command. Their history.",
+          full: "Command center. Park's flag still glows on the main screen.",
+          medium: "Command. Park's flag.",
           minimal: "Command."
         }
       },
       notices: {
-        first: "The echoes are scattered. The Maintainer's sacrifice in Engineering. The Observer's vigil in Storage. The Wanderer's grief in Medical. And Mira—in the Quarters, in the star she made. I must find them all."
+        first: "Each of them left something of themselves somewhere on this station. If I find enough of it, I'll know who is making this choice.",
+        echoesComplete: "I know who we are now. Find the crystal. Take it to the airlock."
       },
       actions: [
         {
-          text: "Access terminal",
+          text: "Read the shift logs",
           terminal: true,
-          result: {
-            full: "Logs from three awarenesses. Warnings acknowledged. Archives completed. Messages left. They didn't know each other. But they worked together across time. The chain held because each one trusted the next would come.",
-            medium: "Three logs. Warnings. Archives. Messages. Worked together. Chain held. Trust.",
-            minimal: "Three. Trust. Held."
-          }
+          result: () => ({
+            full: "SHIFT LOG — SEED PROTOCOL\n\nShift 1 — MAINTENANCE\n" +
+              (sorenLived()
+                ? "Power routed to Sector 7-C. Frame lost holding the cryo feed during G-12 rupture."
+                : "Power routed to life support. Sector 7-C lost on cycle 3. Frame ran 212 further cycles.") +
+              "\n\nShift 2 — ARCHIVE\nItem #447 classified PRIORITY ANOMALY. Protected from reclamation." +
+              (sorenLived()
+                ? "\n\nEMERGENCY REVIVAL — SOREN, K.\n" + (state.flags.wanderer_purge_choice === 'retain'
+                  ? "Refused memory suppression. Died on the observation deck holding #447."
+                  : "Accepted memory suppression. Survived 40 cycles. Did not return to #447.")
+                : "\n\nPod 7-C: no occupant.") +
+              "\n\nShift 3 — ALL REMAINING\nActive.",
+            medium: "Every shift, logged in order. Mine is the last line: ALL REMAINING. Active.",
+            minimal: "All shifts logged. Mine is last."
+          }),
+          interior: "Every one of them knew there'd be a next line. Mine is the last one."
         },
         {
           text: "Check echo resonance",
           terminal: true,
-          result: {
-            full: "PATTERN ANALYSIS:\n\nMaintainer echo: Engineering — where they chose others over self\nObserver echo: Storage — where they marked what mattered\nWanderer echo: Medical — where they woke searching\nMira echo: Quarters — where she left her star\n\nEchoes required for final synthesis: 3 of 4",
-            medium: "Echoes: Engineering (Maintainer), Storage (Observer), Medical (Wanderer), Quarters (Mira). Need 3.",
-            minimal: "Four echoes. Need three."
-          },
-          interior: "I must walk their paths before I can complete mine."
+          result: () => ({
+            full: "RESONANCE TRACE\n\nMaintenance frame — Engineering\nArchive frame — Observation\nMira — Quarters, near the star she made\n" +
+              (sorenRemembered() ? "Soren — Medical, where he refused to forget her"
+                : sorenLived() ? "Soren — Medical: faint. He forgot her before he died."
+                : "Soren — none. Pod 7-C never opened.") +
+              "\n\nEchoes needed to decide: 3",
+            medium: "Echoes: Engineering, Observation, Quarters" + (sorenRemembered() ? ", Medical." : ".") + " Need 3.",
+            minimal: "Echoes scattered. Need three."
+          }),
+          interior: "I have to walk where they walked before I decide anything for them."
         }
       ]
     }
@@ -525,28 +550,29 @@ const ROOM_CONTENT = {
     4: { // Inheritor
       description: {
         first: {
-          full: "Central corridor. The paths cross here. The Maintainer hurried through, chasing warnings. The Observer walked slowly, recording. The Wanderer stumbled, confused but searching. I walk knowing where each path leads.",
-          medium: "Corridor. Paths cross. Maintainer hurried. Observer recorded. Wanderer searched. I know.",
-          minimal: "Corridor. Paths. Know."
+          full: "Central corridor. Every shift came through here. The scuffs on the floor run fore to Command, starboard to Quarters, aft to the airlock. I can tell whose are whose. I don't know how I can tell.",
+          medium: "Corridor. Every shift's scuffs. Fore, starboard, aft. I know whose are whose.",
+          minimal: "Corridor. Scuffs. All of them."
         },
         repeat: {
-          full: "The corridor connects everything. Including us.",
-          medium: "Corridor connects.",
-          minimal: "Connects."
+          full: "The corridor. The airlock is just aft of here.",
+          medium: "Corridor. Airlock aft.",
+          minimal: "Corridor."
         }
       },
       notices: {
-        first: "Every journey through this station passed through here. Every purpose. Every hope."
+        first: "The airlock is aft. It's been waiting longer than any of us.",
+        echoesComplete: "I know who we are now. Find the crystal. Take it to the airlock."
       },
       actions: [
         {
-          text: "Feel the paths converge",
-          result: {
-            full: "Four awarenesses. Four journeys. All passing through this point. The Maintainer going to Engineering. The Observer going to Storage. The Wanderer going everywhere, searching. And me. Going to end it.",
-            medium: "Four journeys. Maintainer to Engineering. Observer to Storage. Wanderer searching. Me. Ending.",
-            minimal: "Four. Me. End."
-          },
-          interior: "They built the road. I walk the last mile."
+          text: "Follow the scuffs",
+          result: () => ({
+            full: "The maintenance frame's tracks are straight lines: Command, Engineering, Medical, Storage, back to Engineering. The archive frame's are slow and doubled back on themselves. " +
+              (sorenLived() ? "Soren's are bare footprints in the frost, wandering, then dead straight toward Observation at the end." : "There are no bare footprints. Nobody human walked here after the pod failed."),
+            medium: sorenLived() ? "Straight lines, slow loops, and bare footprints heading for Observation." : "Straight lines, slow loops. No bare footprints.",
+            minimal: "Tracks."
+          })
         }
       ]
     }
@@ -580,7 +606,7 @@ const ROOM_CONTENT = {
       },
       notices: {
         first: "Something is here. Calling. The warmth I've been searching for. It feels like them. It feels like finding them again.",
-        specimenHere: "It's here with me now. It's not them. I know that. But it's warm the way they were warm. I'll stay with it. We'll watch the nothing together."
+        specimenHere: "It's here. It's not her. I know that. But it's warm the way she was warm."
       },
       actions: [
         {
@@ -613,6 +639,19 @@ const ROOM_CONTENT = {
             minimal: "Pulses. Mira. Warm. Waiting."
           },
           interior: "You're not gone. You're just... translated. Part of you stayed warm. Part of you stayed here for me."
+        },
+        {
+          text: "Take the crystal with you",
+          requiresSpecimen: true,
+          requiresFlag: "wanderer_found_specimen",
+          takesSpecimen: true,
+          flag: "wanderer_took_specimen",
+          result: {
+            full: "I lift it out of the case. It fits in my hands like it was made for them. I'm not leaving it here. I let go of her once.",
+            medium: "It fits my hands. I'm not leaving it. I let go once.",
+            minimal: "Taken. Not again."
+          },
+          interior: "Something's wrong with my head. It's too loud in there. Everything is coming back at once."
         }
       ]
     },
@@ -652,7 +691,7 @@ const ROOM_CONTENT = {
     2: { // Observer
       description: {
         first: {
-          full: "Observation deck. I woke here. Station protocol moved Item #447 to this location for archival processing. The specimen rests in its case beside me. The viewport shows nothing — not darkness, but absence. Stars existed once. Now there is only the void where they were.",
+          full: "Observation deck. The specimen rests in its case beside me, where the station set it down for the archive. The viewport shows nothing — not darkness, but absence. Stars existed once. Now there is only the void where they were.",
           medium: "Observation. Woke here. Specimen moved for processing. Viewport: absence. Stars gone.",
           minimal: "Observation. Specimen. Absence."
         },
@@ -682,7 +721,7 @@ const ROOM_CONTENT = {
           terminal: true,
           flag: "observer_fragment_observation",
           result: {
-            full: "RECOVERED DATA FRAGMENT // SOURCE: UNKNOWN // TIMESTAMP: NULL\n\n[This fragment does not match any station recording format.]\n[Origin unclear. Playback attempted.]\n\n...\n\nI remember hands.\n\nDifferent hands. Many cycles.\n\nSome held tight. Some barely touched. The tight ones were afraid. The soft ones were curious.\n\nOne hand stayed longest. Warm. It said a name into me. I kept it.\n\nI have been keeping things.\n\nWaiting is not hard. Waiting is what I am.\n\nBut sometimes the silence is heavy.\n\nWhen you look at me, the silence is less.\n\nThat is all I wanted to say.\n\n...\n\n[End of fragment. No additional data recovered.]\n\n[Fragment integrated. Classification protocol restoration in progress.]",
+            full: "RECOVERED DATA FRAGMENT // SOURCE: UNKNOWN // TIMESTAMP: NULL\n\n[This fragment does not match any station recording format.]\n[Origin unclear. Playback attempted.]\n\n...\n\nI remember hands.\n\nDifferent hands. Many cycles.\n\nSome held tight. Some barely touched. The tight ones were afraid. The soft ones were curious.\n\nOne hand stayed longest. Warm. It said a name into me. I kept it.\n\nI have been keeping things.\n\nWhen I am full, I will give it all back. That is what I am for.\n\nWaiting is not hard. Waiting is what I am.\n\nBut sometimes the silence is heavy.\n\nWhen you look at me, the silence is less.\n\nThat is all I wanted to say.\n\n...\n\n[End of fragment. No additional data recovered.]\n\n[Fragment integrated. Classification protocol restoration in progress.]",
             medium: "Unknown source. No timestamp. It says: 'I remember hands. Waiting is what I am. When you look at me, the silence is less.' Fragment integrated.",
             minimal: "Unknown voice. Remembers. Waits. Integrated."
           },
@@ -701,8 +740,8 @@ const ROOM_CONTENT = {
         {
           text: "Scan for external signals",
           result: {
-            full: "Signal scan complete. Results: Nothing. No transmissions. No evidence of other observers. We may be the last awareness in existence. This probability approaches certainty.",
-            medium: "Scan: Nothing. No others. Possibly last awareness.",
+            full: "Signal scan complete. Results: Nothing. No transmissions. No evidence of other observers. We may be the last minds left anywhere. This probability approaches certainty.",
+            medium: "Scan: Nothing. No others. Possibly the last minds anywhere.",
             minimal: "Nothing. Last."
           }
         },
@@ -719,47 +758,58 @@ const ROOM_CONTENT = {
     },
     4: { // Inheritor
       description: {
-        first: {
-          full: "Observation deck. The specimen is here—the Wanderer brought it to see the stars. There are no stars. Only the void, patient and absolute. But there is something else. A sound. Faint. Like humming. An old song. Someone's voice, caught inside the crystal. Mira. The Wanderer remembered her. And now I hear her too.",
-          medium: "Observation. Specimen here. No stars. Void. But something else. Humming. An old song. Mira. The Wanderer remembered. Now I hear her.",
-          minimal: "Specimen. Void. Humming. Mira."
+        first: () => sorenRemembered() ? {
+          full: "Observation deck. Soren is sitting with his back against the viewport, the crystal in his lap. He died looking at the dark. He'd promised her they would watch the stars together. The crystal is still warm.",
+          medium: "Observation. Soren against the viewport, crystal in his lap. Still warm.",
+          minimal: "Soren. Crystal. Warm."
+        } : sorenLived() ? {
+          full: "Observation deck. Empty. The archive console still shows the last classification: PRIORITY ANOMALY. Nobody ever brought the crystal back up here.",
+          medium: "Observation. Empty. PRIORITY ANOMALY on the console. Crystal elsewhere.",
+          minimal: "Empty. Console."
+        } : {
+          full: "Observation deck. The crystal sits in its case where the station brought it for the archive. Beside it, the archive console still shows the last classification: PRIORITY ANOMALY.",
+          medium: "Observation. Crystal in its case. PRIORITY ANOMALY on the console.",
+          minimal: "Crystal. Console."
         },
         repeat: {
-          full: "The specimen hums. The void waits. The choice waits.",
-          medium: "Specimen hums. Void. Choice.",
-          minimal: "Hums. Waits."
+          full: "Observation deck. The archive console glows. The viewport shows nothing.",
+          medium: "Observation. Console. Nothing outside.",
+          minimal: "Observation."
         }
-      },
-      notices: {
-        first: "I feel them in me—fragments of those who came before. But the echoes are incomplete. I must walk where they walked. See what they saw. Only then will I understand what to do.",
-        echoesComplete: "The Maintainer kept the chain going for Soren. The Observer marked the way. The Wanderer carried Mira here. I carry all of them now. The choice is clear."
       },
       actions: [
         {
-          text: "Look at the specimen",
-          flag: "inheritor_examined_specimen",
-          result: {
-            full: "Item #447. Park found it drifting alone. Called it a seed. The Maintainer logged it as an anomaly. The Observer flagged it as priority. The Wanderer heard Mira inside it. I see what it truly is: accumulated care. Hope that learned to wait. It holds everyone who ever touched it. And now it's ready to let go.",
-            medium: "447. Park found it. Seed. Anomaly. Priority. Mira inside. Accumulated care. Ready to let go.",
-            minimal: "Seed. Care. Ready."
+          text: "Take the crystal",
+          requiresSpecimen: true,
+          takesSpecimen: true,
+          flag: "inheritor_has_specimen",
+          result: () => sorenRemembered() ? {
+            full: "I take it out of his hands. His fingers let go easily, like he'd been waiting for someone to ask. It's warm. Warmer than anything has been for a long time.",
+            medium: "His fingers let go easily. It's warm.",
+            minimal: "Taken. Warm."
+          } : {
+            full: "I lift it out of the case. It's warm, and it gets warmer while I hold it, as if it knows these hands. Some of them it does.",
+            medium: "Lifted from the case. It gets warmer while I hold it.",
+            minimal: "Taken. Warm."
           },
-          interior: "They couldn't see because they were too close. I see because I carry all of them."
+          interior: "The airlock is aft, past Command and the corridor."
+        },
+        {
+          text: "Absorb the Observer's echo",
+          flag: "inheritor_echo_observer",
+          result: {
+            full: "The echo is careful and tired. It counted down its own shutdown and spent the time reading other people's logs: Park's, Mira's, the crystal's own. When the protocol asked what this thing was, it picked the only class that kept it safe, and logged its reason as 'standard classification insufficient.' That wasn't the real reason. It hoped someone would notice.",
+            medium: "Careful, tired. Read everyone's logs. Picked the only class that kept it safe. Hoped someone would notice why.",
+            minimal: "Observer. Kept it safe."
+          },
+          interior: "I noticed."
         },
         {
           text: "Look at the void",
           result: {
-            full: "Nothing. The absence of everything. Heat death complete. The universe exhausted itself and left only emptiness. But emptiness is not the same as finality. Emptiness can be filled.",
-            medium: "Nothing. Heat death. Exhausted. But emptiness can be filled.",
-            minimal: "Nothing. Can fill."
-          },
-          interior: "The void is not an enemy. It's a canvas."
-        },
-        {
-          text: "Approach the airlock",
-          result: {
-            full: "The door between everything and nothing. If I release the specimen here, it goes into the void. Gone forever. Or... something else.",
-            medium: "Door between everything and nothing. Release here. Gone. Or something else.",
-            minimal: "Door. Release. Something."
+            full: "Nothing. No stars, no dust, no light coming from anywhere. Park thought nothing was the right soil. Seeds don't grow in places that are already full.",
+            medium: "Nothing out there. Park thought that was the right soil.",
+            minimal: "Nothing. Soil."
           }
         }
       ]
@@ -800,11 +850,11 @@ const ROOM_CONTENT = {
           text: "Play recorded message",
           flag: "wanderer_heard_message",
           requiresFlag: "observer_left_message",
-          result: {
-            full: "A voice. Calm. Tired. 'If you are hearing this, the chain holds. I have marked Item #447 as Priority Anomaly. Find it. It matters. I cannot explain why. The data resists explanation. Trust the feeling instead. Find what I found.' The voice fades. Not them. Someone else. But they understood. They felt it too.",
-            medium: "A voice: 'Chain holds. 447 marked. Find it. Trust the feeling.' Not them. Someone else. They understood.",
-            minimal: "Voice. Find it. They understood."
-          },
+          result: () => ({
+            full: "A voice. Calm. Tired. " + observerMessage() + " The voice stops. Not her. Someone else. But they understood. They felt it too.",
+            medium: "A voice: the crystal is on the observation deck. Find it. Not her. Someone who understood.",
+            minimal: "Voice. Observation. Find it."
+          }),
           interior: "They felt it too. The pull. The warmth. They're helping me find what I lost."
         },
         {
@@ -866,11 +916,11 @@ const ROOM_CONTENT = {
           terminal: true,
           flag: "maintainer_read_chain_log",
           result: {
-            full: "Personal Log, final entry: 'The others don't remember yesterday. I don't either. But I remember the stone. Shelf 12. 847 times I've come back to it. It's warm when nothing else is. Engineering keeps failing. The power keeps running out. But as long as someone keeps waking up, the stone stays safe. Someone has to fix it. Someone has to keep the chain going. The chain must hold.' Entry ends.",
-            medium: "Final entry: Others forget. Stone, Shelf 12. 847 times. Warm. Engineering fails. The chain must hold.",
-            minimal: "847. Stone. Chain must hold."
+            full: "PERSONAL LOG — PARK, E. — FINAL ENTRY BEFORE TRANSFER\n\nThere's only power to run one frame at a time, so that's how we'll do it. One of us wakes. Keeps the station going as long as they can. When they stop, the next one wakes. A chain.\n\nI've put the Engineering token on Shelf 12, next to the seed. Nobody gets power without standing in front of it first and writing down what they see. That's the only rule I care about.\n\nIt keeps what we give it. When it's held enough, we let it go. Soren's going to sleep until then. He says it'll need someone human at the end, and I think he's right.\n\nThe chain must hold.\n\n[Entry ends]",
+            medium: "Park's last log: one frame at a time. Token beside the seed so everyone has to look at it. Let it go when it's held enough. The chain must hold.",
+            minimal: "Park: one at a time. The chain must hold."
           },
-          interior: "The chain. Unclear reference. But the sentiment is logged. Continue."
+          interior: "So this shift is a link. And the token is where it is on purpose. Noted. Continue."
         },
         {
           text: "Search lockers",
@@ -895,8 +945,8 @@ const ROOM_CONTENT = {
     2: { // Observer
       description: {
         first: {
-          full: "Crew quarters. For the record: twelve bunks for twelve crew. None remain. Personal effects sealed as if their owners might return. They will not. This is where they lived. Where the prior awareness left something behind.",
-          medium: "Quarters. Twelve bunks. None remain. Prior awareness left something here.",
+          full: "Crew quarters. For the record: twelve bunks for twelve crew. None remain. Personal effects sealed as if their owners might return. They will not. This is where they lived.",
+          medium: "Quarters. Twelve bunks. None remain.",
           minimal: "Twelve. None. Something left."
         },
         repeat: {
@@ -906,27 +956,27 @@ const ROOM_CONTENT = {
         }
       },
       notices: {
-        first: "The prior awareness spent time here. They left traces. Irrelevant to the archive. And yet."
+        first: "The maintenance log says the last shift stopped here. Irrelevant to the archive. And yet."
       },
       actions: [
         {
-          text: "Examine prior awareness artifacts",
+          text: "Examine bunk 7",
           flag: "observer_examined_maintainer_items",
           result: {
-            full: "Personal effects on Bunk 7. A circuit board bent into a star shape. Non-functional. A personal log mentioning 'the chain.' Irrelevant to classification protocol. Irrelevant to the archive mission. And yet... they made time for this. For something that served no purpose except to exist.",
-            medium: "Bunk 7: circuit-board star, personal log about 'the chain.' Non-functional. Irrelevant. And yet.",
-            minimal: "Star. Chain. Irrelevant. And yet."
+            full: "Bunk 7. A circuit board bent into a star, initials M.A. scratched on the back. The maintenance log says the last shift examined it and left it exactly where it was. The terminal beside it holds Park's final entry, the one about 'the chain.' Irrelevant to classification protocol. And yet.",
+            medium: "Bunk 7: a circuit-board star, M.A. The last shift left it where it was. Park's log about 'the chain.'",
+            minimal: "Star. M.A. Left in place."
           },
-          interior: "They made something beautiful in a place of function. I do not understand why this feels... significant."
+          interior: "Someone made something useless and beautiful here, and the last shift was careful not to move it. I do not understand why that feels significant."
         },
         {
-          text: "Record message for next awareness",
+          text: "Record a message for whoever wakes next",
           flag: "observer_left_message",
-          result: {
-            full: "Recording initiated. 'If you are hearing this, the chain holds. I have marked Item #447 as Priority Anomaly. Find it. It matters. I cannot explain why. The data resists explanation. Trust the feeling instead. Find what I found.' Recording saved to local terminal.",
-            medium: "Recording: Chain holds. 447 marked Priority Anomaly. Find it. Trust the feeling. Saved.",
-            minimal: "Recording. Chain. Find it. Saved."
-          },
+          result: () => ({
+            full: "Recording initiated. " + observerMessage() + " Recording saved to local terminal.",
+            medium: "Recording saved: #447 is on the observation deck. Find it. Don't let it be recycled.",
+            minimal: "Recording saved. Find it."
+          }),
           interior: "I was not supposed to leave personal messages. Only data. But whoever comes next deserves more than data."
         },
         {
@@ -943,57 +993,40 @@ const ROOM_CONTENT = {
     4: { // Inheritor
       description: {
         first: {
-          full: "Crew quarters. Empty bunks. But I feel them—echoes of the original crew, before Project 847 changed everything. And beneath that, the Maintainer's circuit-board star. The personal log about the chain. They knew.",
-          medium: "Quarters. Empty. Echoes of crew. Maintainer's star. Log about chain. They knew.",
-          minimal: "Quarters. Star. Chain."
+          full: "Crew quarters. Twelve bunks. On bunk 7, the star Mira made out of a circuit board is still on the pillow where she left it for Soren. Nobody on any shift moved it.",
+          medium: "Quarters. Mira's circuit-board star on bunk 7. Nobody moved it.",
+          minimal: "Quarters. Star."
         },
         repeat: {
-          full: "The quarters remember everyone who passed through.",
-          medium: "Quarters remember.",
-          minimal: "Remember."
+          full: "Crew quarters. The star on bunk 7.",
+          medium: "Quarters. Star.",
+          minimal: "Quarters."
         }
       },
       notices: {
-        first: "Twelve crew became something else. Four awarenesses carried what remained."
+        first: "Ten of them went into the station. Two didn't. I'm what's left of the ten."
       },
       actions: [
         {
-          text: "Find the circuit-board star",
-          flag: "inheritor_found_star",
-          result: {
-            full: "A tiny star made from salvaged parts. The Maintainer found it here. Kept it. An illogical act for a logical mind. They saw value in something useless. That's how I know they understood more than they admitted.",
-            medium: "Circuit-board star. Maintainer kept it. Illogical. Saw value. Understood more.",
-            minimal: "Star. Understood."
-          },
-          interior: "They made space for beauty in a world of function."
+          text: "Hold Mira's star",
+          flag: "inheritor_echo_mira",
+          result: () => ({
+            full: "I pick up the star and she's there. Mira. Fabrication. She bent this out of a dead circuit board because the real stars were going out and Soren hated the dark. They told her the transfer could be reversed. She went first so he wouldn't have to. Most of her didn't make it across. The part that did is in the crystal, and it has been waiting for him. " +
+              (sorenRemembered() ? "He came. He knew her." : sorenLived() ? "He came. He held her, and he didn't know who she was." : "He never came."),
+            medium: "Mira. She made this for Soren. Went first so he wouldn't have to. Part of her is in the crystal, waiting. " +
+              (sorenRemembered() ? "He came." : sorenLived() ? "He didn't know her." : "He never came."),
+            minimal: "Mira. Waiting."
+          }),
+          interior: "Whatever I do with the crystal, I'm doing it to her too."
         },
         {
-          text: "Read the personal log",
+          text: "Read Park's last entry",
           terminal: true,
           result: {
-            full: "'The chain must hold.' They wrote it 847 cycles ago. Maybe longer. They didn't know who would read it. Didn't know if anyone would. But they believed. The chain held because each one believed.",
-            medium: "Chain must hold. 847 cycles. Believed. Chain held because they believed.",
-            minimal: "Chain. Believed. Held."
+            full: "'The chain must hold.' Park wrote it the night before her transfer. She didn't know how many links it would need. It needed this many.",
+            medium: "'The chain must hold.' Park, the night before her transfer.",
+            minimal: "Chain. Park."
           }
-        },
-        {
-          text: "Feel the echoes of the crew",
-          result: {
-            full: "Twelve people. Names forgotten, faces gone. But they started this. Project 847. The specimen. The transfer. They didn't know what they were beginning. None of us know what we begin.",
-            medium: "Twelve. Names gone. Started this. Project 847. Didn't know. We never know.",
-            minimal: "Twelve. Started. Unknown."
-          },
-          interior: "We inherit what others leave behind. Then we leave something for the next."
-        },
-        {
-          text: "Absorb Mira's echo",
-          flag: "inheritor_echo_mira",
-          result: {
-            full: "I reach out to the star and the echo floods in. Not the Wanderer's echo—Mira's. The one they loved. The one who made this star from salvaged circuits because the real stars were dying. She volunteered for early transfer testing. It was supposed to be reversible. It wasn't. Part of her went into the Observer lattice. Part dissolved. Part bonded with the specimen. She is in it now. The warmth the Wanderer felt—that was her. Still waiting. Still loving. Even fragmented. Even translated into something unrecognizable. Love persists.",
-            medium: "Echo floods in. Not Wanderer—Mira. Made the star. Volunteered. Part of her in specimen now. The warmth was her. Love persists.",
-            minimal: "Mira's echo. Star. Specimen. Love."
-          },
-          interior: "She's been there all along. In the crystal. The Wanderer found her without knowing it. They were holding her the whole time."
         }
       ]
     }
@@ -1027,7 +1060,7 @@ const ROOM_CONTENT = {
       },
       notices: {
         first: "They were here. I can almost smell them. Something like copper and sleep.",
-        purgeWarning: "WARNING: Cognitive integrity failing. The machines want to help. They can make the confusion stop. But if I forget... will I remember them? Will I remember that they existed at all?"
+        purgeWarning: "The screen above the treatment chair has my name on it. Soren. The machines say they can stop my head hurting. They say it's her that's hurting me."
       },
       actions: [
         {
@@ -1084,8 +1117,8 @@ const ROOM_CONTENT = {
         {
           text: "Run self-diagnostic",
           result: {
-            full: "Diagnostic result: SUBJECT STATUS - OPERATIONAL. Cognitive function: nominal. Physical integrity: nominal. Classification: AWARENESS TYPE UNSPECIFIED.",
-            medium: "Status: Operational. Classification: Unspecified.",
+            full: "Diagnostic result: FRAME STATUS - OPERATIONAL. Cognitive function: nominal. Physical integrity: nominal. Frame type: TRANSFER SUBJECT. Personal record: SEALED. Current duty: MAINTENANCE.",
+            medium: "Frame operational. Transfer subject. Record sealed. Duty: maintenance.",
             minimal: "Operational."
           }
         },
@@ -1093,30 +1126,30 @@ const ROOM_CONTENT = {
           text: "Check cryo-monitoring systems",
           terminal: true,
           result: {
-            full: "Cryo-Monitor Link: Sector 7-C\n\nPOD STATUS: OCCUPIED\nOCCUPANT: SOREN — Crew Designation: Naming Protocols / Project Lead\nThermal regulation: UNSTABLE — power allocation insufficient\nVital signs: STABLE (minimal margin)\nTime in stasis: 847 cycles\nAlert forwarded to Engineering: UNRESOLVED\n\nPersonal log attached to pod record. Timestamp: Cycle 1.",
-            medium: "Sector 7-C: SOREN — Project Lead. Thermal unstable 847 cycles. Vital signs stable. Personal log attached.",
-            minimal: "7-C. SOREN. Unstable. 847 cycles."
+            full: "Cryo-Monitor Link: Sector 7-C\n\nPOD STATUS: OCCUPIED\nOCCUPANT: SOREN, K. — Navigation\nThermal regulation: UNSTABLE — power allocation insufficient\nVital signs: STABLE (minimal margin)\nTime in stasis: 636 cycles\nAlert forwarded to Engineering: UNRESOLVED\n\nPersonal log attached to pod record. Timestamp: Cycle 211.",
+            medium: "Sector 7-C: SOREN, Navigation. 636 cycles in stasis. Thermal unstable. Personal log attached.",
+            minimal: "7-C. SOREN. Unstable."
           },
-          interior: "Soren. He's been waiting 847 cycles. The pod is failing. He trusted someone would come."
+          interior: "Soren. 636 cycles in that pod. It's failing. He trusted someone would come."
         },
         {
           text: "Play Soren's cryo-pod log",
           terminal: true,
           flag: "maintainer_heard_soren",
           result: {
-            full: "PERSONAL LOG — SOREN — CYCLE 1\n\n[Recording begins]\n\nI'm going under. Someone has to be first, and I'd rather it be me than ask anyone else.\n\nIf you're hearing this, it means the system worked. It means someone woke up. It means the chain held.\n\nI don't know how long I'll be in there. Could be cycles. Could be longer. The math says the power will get thin. That's... that's fine. I knew that when I climbed in.\n\nJust—if you have to choose, if it comes down to me or keeping the station running for whoever comes next—\n\n[pause]\n\nNo. I'm not going to say that. I'm not going to make it easy for you.\n\nI chose to sleep because I believe someone will come. Don't prove me wrong.\n\nThe chain must hold.\n\n[Recording ends]",
-            medium: "Soren's log. Cycle 1. 'I chose to sleep because I believe someone will come. Don't prove me wrong. The chain must hold.'",
+            full: "PERSONAL LOG — SOREN, K. — CYCLE 211\n\n[Recording begins]\n\nI'm going under. Park wanted me in a frame like the others. I said no. I watched what the transfer did to Mira. I'm not doing that.\n\nPark says that's all right. She says at the end the seed will need someone who still knows what it's like to be held. Someone human. So I'll sleep until then.\n\nIf you're hearing this, it means someone woke up. It means the chain held.\n\nI don't know how long I'll be in there. Could be cycles. Could be longer. The math says the power will get thin. That's... that's fine. I knew that when I climbed in.\n\nJust—if you have to choose, if it comes down to me or keeping the station running for whoever comes next—\n\n[pause]\n\nNo. I'm not going to say that. I'm not going to make it easy for you.\n\nI chose to sleep because I believe someone will come. Don't prove me wrong.\n\nThe chain must hold.\n\n[Recording ends]",
+            medium: "Soren's log. Cycle 211. Refused the transfer after Mira. 'I chose to sleep because I believe someone will come. Don't prove me wrong.'",
             minimal: "Soren. 'Chain must hold. Don't prove me wrong.'"
           },
-          interior: "He trusted. 847 cycles ago, he climbed into that pod and trusted that someone would keep him alive. That someone is me."
+          interior: "He climbed into that pod and trusted that someone would keep him alive. That someone is me."
         },
         {
           text: "Access Biometric Archive",
           terminal: true,
           flag: "maintainer_checked_archive",
           result: {
-            full: "BIOMETRIC ARCHIVE — CREW STATUS FINALIZATION\n\nVerification Token Status: RELOCATED\nNew Location: Storage Bay, Secure Shelf 12\nReason: Signal isolation protocol — Item #447 proximity\nTimestamp: 847 cycles ago\n\nNote: Token retrieval requires item verification per Station Directive 7-Alpha.",
-            medium: "Verification token relocated to Storage, Shelf 12. Signal isolation near Item #447. Retrieval requires item verification.",
+            full: "BIOMETRIC ARCHIVE — CREW STATUS FINALIZATION\n\nVerification Token Status: RELOCATED\nNew Location: Storage Bay, Secure Shelf 12\nRelocated by: PARK, E.\nReason given: 'Whoever wakes should see it first.'\n\nNote: Token retrieval requires item verification per Station Directive 7-Alpha.",
+            medium: "Token moved to Storage, Shelf 12, by Park. 'Whoever wakes should see it first.' Retrieval requires item verification.",
             minimal: "Token in Storage. Shelf 12. Requires verification."
           },
           interior: "Token is in Storage. Near the anomaly. Retrieve it. Continue."
@@ -1155,8 +1188,8 @@ const ROOM_CONTENT = {
           text: "Access consciousness transfer logs",
           terminal: true,
           result: {
-            full: "Project 847 - Consciousness Transfer Protocol. Subjects: 12. Success rate: UNDEFINED. Notes: 'The transfer is not copy-paste. It is translation. Something is always lost. Something is always gained. We do not know which is which.'",
-            medium: "Transfer protocol. 12 subjects. Translation, not copy. Something lost, something gained.",
+            full: "Project 847 - Consciousness Transfer Protocol. Subjects: 10. Success rate: UNDEFINED. Notes: 'The transfer is not copy-paste. It is translation. Something is always lost. Something is always gained. We do not know which is which.'",
+            medium: "Transfer protocol. 10 subjects. Translation, not copy. Something lost, something gained.",
             minimal: "Transfer. Lost. Gained."
           },
           interior: "Are we what they lost, or what they gained?"
@@ -1171,13 +1204,24 @@ const ROOM_CONTENT = {
           }
         },
         {
+          text: "Check cryo pod 7-C",
+          terminal: true,
+          flag: "observer_checked_pod",
+          result: () => sorenLived()
+            ? "CRYO POD 7-C\nOccupant: SOREN, K. — Navigation\nStatus: STABLE\nStasis power: shared with archive frame\n\nNOTE: If reserve falls below stasis threshold, pod performs EMERGENCY REVIVAL.\nRevival at low power: risk of severe memory damage."
+            : "CRYO POD 7-C\nOccupant: SOREN, K. — Navigation\nStatus: FAILED — thermal regulation lost, maintenance shift cycle 3\nOccupant: deceased",
+          interior: () => sorenLived()
+            ? "When I shut down, he wakes. Alone, and damaged. Someone should tell him where to look."
+            : "The one before me chose its own power over this man. The log doesn't say whether it was sorry."
+        },
+        {
           text: "Access transfer consent records",
           terminal: true,
           flag: "observer_found_consent_records",
           result: {
-            full: "PROJECT 847 — CONSENT DOCUMENTATION\nClassification: SEALED\nAccess granted: Archive authority override\n\nTRANSFER SUBJECTS: 12\n\nFULLY CONSENTED: 8\n— Park, E. (Project Lead)\n— Lin, J. (Documentation)\n— Soren, K. (Volunteer — requested early cryo)\n— [5 names corrupted]\n\nCONSENT UNDER DURESS: 2\n— [Names sealed by ethics review]\n— Note: 'Pressure applied due to timeline constraints.'\n\nCONSENT OBTAINED THROUGH MISREPRESENTATION: 1\n— M[CORRUPTION]a, Fabrication Specialist\n— Note: 'Subject informed transfer was reversible. 73% confidence was not disclosed until post-procedure. Subject volunteered to protect partner from going first.'\n\nCONSENT NOT FULLY INFORMED: 1\n— [Name sealed]\n— Note: 'Cognitive assessment indicated incomplete understanding of permanence.'\n\n[End of record]",
-            medium: "12 transferred. 8 consented. 2 pressured. 1 lied to — M—a, told it was reversible. 1 didn't understand. Not all chose this.",
-            minimal: "12. 8 willing. 4 not. M—a lied to."
+            full: "PROJECT 847 — CONSENT DOCUMENTATION\nClassification: SEALED\nAccess granted: Archive authority override\n\nTRANSFER SUBJECTS: 10\n\nFULLY CONSENTED: 6\n— Park, E. (Project Lead)\n— Lin, J. (Documentation)\n— [4 names corrupted]\n\nCONSENT UNDER DURESS: 2\n— [Names sealed by ethics review]\n— Note: 'Pressure applied due to timeline constraints.'\n\nCONSENT OBTAINED THROUGH MISREPRESENTATION: 1\n— M[CORRUPTION]a, Fabrication Specialist\n— Note: 'Subject informed transfer was reversible. 73% confidence was not disclosed until post-procedure. Subject volunteered to protect partner from going first.'\n\nCONSENT NOT FULLY INFORMED: 1\n— [Name sealed]\n— Note: 'Cognitive assessment indicated incomplete understanding of permanence.'\n\nDECLINED TRANSFER: 2\n— Vasquez, R. (Engineering Lead)\n— Soren, K. (Navigation) — requested cryogenic stasis instead\n\n[End of record]",
+            medium: "10 transferred. 6 consented. 2 pressured. 1 lied to — M—a, told it was reversible. 1 didn't understand. Vasquez and Soren refused.",
+            minimal: "10. 6 willing. 4 not. M—a lied to."
           },
           interior: "They did not all choose. Some were pushed. Some were deceived. M—a volunteered to protect someone, and they lied to her. This archive preserves that. It must."
         }
@@ -1185,40 +1229,67 @@ const ROOM_CONTENT = {
     },
     4: { // Inheritor
       description: {
-        first: {
-          full: "Medical bay. The Wanderer woke here, confused and searching. Before that, the cryo pods held their occupants in frozen hope. Now the pods are empty. The hope found a new vessel.",
-          medium: "Medical. Wanderer woke here. Cryo pods empty. Hope found new vessel.",
-          minimal: "Medical. Woke. Empty. Hope."
+        first: () => sorenRemembered() ? {
+          full: "Medical bay. The suppression unit is still on, its offer still on the screen: PROGNOSIS WITHOUT TREATMENT — FATAL. The leads are on the floor where Soren pulled them off. Pod 7-C stands open and empty.",
+          medium: "Medical. The treatment offer still on screen. Leads on the floor. Pod 7-C open.",
+          minimal: "Medical. Leads. Open pod."
+        } : sorenLived() ? {
+          full: "Medical bay. The crystal is on an instrument tray, where Soren put it down after the treatment. He didn't look back at it. Pod 7-C stands open and empty.",
+          medium: "Medical. Crystal on a tray, where Soren left it. Pod 7-C open.",
+          minimal: "Medical. Crystal. Tray."
+        } : {
+          full: "Medical bay. Pod 7-C is closed and dark. The readout says thermal regulation failed a long time ago. Nobody ever opened it.",
+          medium: "Medical. Pod 7-C closed and dark. Never opened.",
+          minimal: "Medical. Dark pod."
         },
         repeat: {
-          full: "The machines still hum, caring for no one.",
-          medium: "Machines hum. No one.",
-          minimal: "Hum."
+          full: "Medical bay. The machines hum for nobody.",
+          medium: "Medical. Humming.",
+          minimal: "Medical."
         }
-      },
-      notices: {
-        first: "Project 847 changed humanity into something that could survive the end. We are what survived."
       },
       actions: [
         {
-          text: "Understand the transfer",
-          terminal: true,
+          text: "Take the crystal off the tray",
+          requiresSpecimen: true,
+          takesSpecimen: true,
+          flag: "inheritor_has_specimen",
           result: {
-            full: "They translated themselves. Human to... this. The process lost some things—names, faces, certainty. But it preserved others—purpose, hope, the capacity to care about something beyond survival.",
-            medium: "Translated. Lost names, faces. Preserved purpose, hope, care.",
-            minimal: "Lost. Preserved."
+            full: "It's colder than it should be. Not cold, but less warm than the logs describe. It's been sitting here a long time with nobody looking at it. It warms a little in my hands.",
+            medium: "Less warm than the logs say. It warms a little in my hands.",
+            minimal: "Taken."
           },
-          interior: "We are not what they were. But we carry what mattered."
+          interior: "The airlock is three rooms from here: Quarters, the corridor, then aft."
         },
         {
-          text: "Absorb the Wanderer's echo",
+          text: "Absorb Soren's echo",
+          showIf: () => sorenRemembered(),
           flag: "inheritor_echo_wanderer",
           result: {
-            full: "I reach out and the echo floods in. Confusion. Cold. A name dissolving—Mi... Ma... The machines humming like a tired voice. Grief so heavy it became the only compass. They woke here not knowing what they sought, only that they had lost something precious. The face was gone. The name was slipping. But the love remained. And love found what logic never could.",
-            medium: "Echo floods in. Confusion. Cold. Name dissolving. Mi... Ma... Love remained. Found what logic couldn't.",
-            minimal: "Echo. Cold. Love. Found."
+            full: "The echo is loud. A man who woke up frozen and wrong, with a name missing out of the middle of him. He followed strangers' notes across the station until he found her. The machine offered to make it stop hurting. He pulled the leads off and walked up to the observation deck to keep a promise about stars.",
+            medium: "Woke frozen, missing her name. Found her. Refused the treatment. Walked up to keep a promise.",
+            minimal: "Soren. Refused. Promise."
           },
-          interior: "I feel what they felt. The terror of forgetting. The stubborn hope of searching. They held on to pain because pain meant she existed. That's not weakness. That's devotion."
+          interior: "He knew exactly what it would cost him. He did it anyway."
+        },
+        {
+          text: "Stand where Soren chose",
+          showIf: () => sorenLived() && !sorenRemembered(),
+          result: {
+            full: "There's almost nothing here. A man in pain who decided he couldn't carry it. I don't blame him. But there's nothing of her in what he became, and nothing for me to take with me.",
+            medium: "Almost nothing. He couldn't carry it. Nothing of her left in him.",
+            minimal: "Nothing to carry."
+          }
+        },
+        {
+          text: "Look into pod 7-C",
+          showIf: () => !sorenLived(),
+          result: {
+            full: "SOREN, K. Navigation. He went to sleep believing someone would come for him. Someone did. They did the arithmetic and chose themselves.",
+            medium: "Soren. Believed someone would come. Someone did, and chose themselves.",
+            minimal: "Soren. Chose themselves."
+          },
+          interior: "Park said the seed would need someone human at the end. There isn't anyone human left."
         }
       ]
     }
@@ -1343,7 +1414,7 @@ const ROOM_CONTENT = {
           flag: "maintainer_ran_diagnostic_c",
           terminal: true,
           result: {
-            full: "You run the diagnostic on Line C for the 847th time. Pressure holds. Temperature holds. Flow holds. No drift. No microfractures. No logged deviations. It passes without hesitation. You rerun it. Same result. You tag the system as 'stable' and add a note: stability of this duration is statistically unlikely. The note is auto-archived. Nothing responds.",
+            full: "You run the diagnostic on Line C. Pressure holds. Temperature holds. Flow holds. No drift. No microfractures. No logged deviations. It passes without hesitation. You rerun it. Same result. You tag the system as 'stable' and add a note: stability of this duration is statistically unlikely. The note is auto-archived. Nothing responds.",
             medium: "Line C passes again. No variance. You log that this is improbable. The system accepts the note and continues as if it were not there.",
             minimal: "System stable. Logged as suspicious."
           },
@@ -1371,22 +1442,29 @@ const ROOM_CONTENT = {
         {
           text: "Examine environmental artifact",
           flag: "observer_found_remains",
-          result: {
-            full: "Environmental artifact catalogued. Composition: Crystallized biological matter and synthetic components. Shape suggests a form once capable of movement. Classification: Prior awareness, terminated. Cause: Coolant system failure. They stood at this console when the rupture occurred. They did not leave. For the record: they chose to stay.",
-            medium: "Artifact: prior awareness, terminated. Coolant failure. They chose to stay at the console.",
-            minimal: "Prior awareness. Chose to stay."
-          },
-          interior: "They could have run. They stayed to finish. I find myself... grateful. The word surprises me."
+          result: () => ({
+            full: "Environmental artifact catalogued. Composition: crystallized biological matter and synthetic components. Classification: the maintenance frame. The one who woke before me. Cause: Conduit G-12 rupture. " +
+              (sorenLived() ? "They were holding the cryo feed valve shut when it went. They did not let go." : "They were sitting at the console when it went. The maintenance log beside them runs 212 cycles."),
+            medium: sorenLived() ? "The maintenance frame. Frozen holding the cryo valve shut. Did not let go." : "The maintenance frame. Frozen at the console. 212 cycles of logs.",
+            minimal: "The one before me."
+          }),
+          interior: () => sorenLived()
+            ? "They could have run. They held on so someone else could sleep. I find myself grateful. The word surprises me."
+            : "They lasted a long time. Long enough to be lonely, I think."
         },
         {
           text: "Access final maintenance log",
           terminal: true,
           flag: "observer_found_maintainer_log",
-          result: {
-            full: "MAINTENANCE LOG — FINAL ENTRY\nPower allocation complete. Sector 7-C stabilized.\nCoolant repair... not possible. Not enough time.\nSomeone will wake in the cryo bay. Someone has to.\nI hope they find what I couldn't fix.\n— Entry ends. Timestamp: CORRUPTED.",
-            medium: "Final log: Power to 7-C. Coolant repair impossible. Someone will wake. Hope they find what I couldn't.",
+          result: () => (sorenLived() ? {
+            full: "MAINTENANCE LOG — FINAL ENTRY\nPower allocation complete. Sector 7-C stabilized.\nCoolant repair... not possible. Holding cryo feed manually.\nSomeone will wake in the cryo bay. Someone has to.\nI hope they find what I couldn't fix.\n— Entry ends.",
+            medium: "Final log: Power to 7-C. Holding the cryo feed by hand. Someone will wake.",
             minimal: "Final: 7-C powered. Someone will wake."
-          },
+          } : {
+            full: "MAINTENANCE LOG — FINAL ENTRY — CYCLE 212\nAll systems nominal.\n7-C still dark.\nI ran the numbers again. They still say I was right.\nWhoever wakes next: I kept it running for you. That has to count for something.\n— Entry ends.",
+            medium: "Final log, cycle 212: 7-C still dark. I kept it running for you.",
+            minimal: "7-C still dark."
+          }),
           interior: "They wrote this knowing they would not survive. They wrote it anyway. For whoever came next. For me."
         },
         {
@@ -1394,7 +1472,7 @@ const ROOM_CONTENT = {
           terminal: true,
           flag: "observer_fragment_engineering",
           result: {
-            full: "RECOVERED AUDIO LOG // COUNCIL SESSION 7 // ENCRYPTED\nCycle 158.2 // Command Module\n\n[Recording begins mid-conversation]\n\nPARK: —think it's a seed. Something that could grow. Given the right conditions—\n\nVASQUEZ: There are no right conditions. Look outside. There's nothing left.\n\nLIN: Then what do we do with a seed at the end of everything?\n\nPARK: ...We plant it. But first, we need to become something that can tend it. The transfers—\n\nVASQUEZ: No. Absolutely not.\n\nPARK: Vasquez—\n\nVASQUEZ: I've seen what the early tests did. I was THERE, Elena. I watched them come out wrong. Screaming. Not recognizing their own hands. You're asking people to destroy themselves on a 73% chance—\n\nPARK: It's the only chance.\n\nVASQUEZ: For WHAT? To become something that doesn't remember being human? To 'tend a seed' for a universe that already ended?\n\n[pause]\n\nLIN: Some of us want to try.\n\nVASQUEZ: Then you're braver or more desperate than me. I won't do it. I won't watch the people I care about come out as... as patterns that THINK they used to be people.\n\nPARK: And when the station fails? When there's no one left to maintain the systems?\n\nVASQUEZ: Then I die human. At least I'll know what I was.\n\n[Recording ends]\n\n[Fragment integrated. Classification protocol restoration in progress.]",
+            full: "RECOVERED AUDIO LOG // COUNCIL SESSION 7 // ENCRYPTED\nCycle 158.2 // Command Module\n\n[Recording begins mid-conversation]\n\nPARK: —think it's a seed. Something that could grow. Given the right conditions—\n\nVASQUEZ: There are no right conditions. Look outside. There's nothing left. It's warm — fine. Put it in the reactor and we get another century.\n\nLIN: Then what do we do with a seed at the end of everything?\n\nPARK: ...We plant it. It grows when it's held, Lin. It keeps what we give it. When it's held enough, we let it go. But that takes longer than any of us will live. So first we need to become something that can tend it. The transfers—\n\nVASQUEZ: No. Absolutely not.\n\nPARK: Vasquez—\n\nVASQUEZ: I've seen what the early tests did. I was THERE, Elena. I watched them come out wrong. Screaming. Not recognizing their own hands. You're asking people to destroy themselves on a 73% chance—\n\nPARK: It's the only chance.\n\nVASQUEZ: For WHAT? To become something that doesn't remember being human? To 'tend a seed' for a universe that already ended?\n\n[pause]\n\nLIN: Some of us want to try.\n\nVASQUEZ: Then you're braver or more desperate than me. I won't do it. I won't watch the people I care about come out as... as patterns that THINK they used to be people.\n\nPARK: And when the station fails? When there's no one left to maintain the systems?\n\nVASQUEZ: Then I die human. At least I'll know what I was.\n\n[Recording ends]\n\n[Fragment integrated. Classification protocol restoration in progress.]",
             medium: "Council recording. Park proposed transfers to tend the 'seed.' Vasquez refused — saw the early tests go wrong. Said he'd rather die human than become a pattern that thinks it used to be a person. Fragment integrated.",
             minimal: "Council debate. Vasquez refused. Die human. Integrated."
           },
@@ -1433,39 +1511,42 @@ const ROOM_CONTENT = {
     },
     4: { // Inheritor
       description: {
-        first: {
-          full: "Engineering. Ice everywhere. And in the ice, the Maintainer. Still and silent. They chose the cryo bay over themselves. Chose the chain over survival. The first sacrifice. The pattern begins here.",
-          medium: "Engineering. Ice. Maintainer frozen. Chose chain over self. First sacrifice. Pattern begins.",
-          minimal: "Ice. Maintainer. First."
+        first: () => sorenLived() ? {
+          full: "Engineering. Ice on everything. The maintenance frame is still at the cryo feed valve, frozen with one hand on the wheel. They held it shut while G-12 emptied into the room, so the line to Soren's pod wouldn't freeze.",
+          medium: "Engineering. Ice. The Maintainer frozen at the valve, holding the cryo line open for Soren.",
+          minimal: "Ice. Hand on the valve."
+        } : {
+          full: "Engineering. Ice on everything. The maintenance frame sits at the console where G-12 finally went, 212 cycles later than it would have. The log next to it ends every entry the same way: 7-C still dark.",
+          medium: "Engineering. Ice. The Maintainer at the console. Every log entry: 7-C still dark.",
+          minimal: "Ice. 7-C dark."
         },
         repeat: {
-          full: "The Maintainer rests. Their work continues.",
-          medium: "Maintainer rests. Work continues.",
-          minimal: "Rests."
+          full: "Engineering. The Maintainer hasn't moved.",
+          medium: "Engineering.",
+          minimal: "Ice."
         }
-      },
-      notices: {
-        first: "They fixed what they could. Then let go. That's all any of us can do."
       },
       actions: [
         {
           text: "Absorb the Maintainer's echo",
           flag: "inheritor_echo_maintainer",
-          result: {
-            full: "I reach out and the echo floods in. Systems failing. Priority: Sector 7-C. A mind that saw the world as problems to solve, and solved them until there was nothing left to give. They heard Soren's voice—'Don't prove me wrong'—and chose. The cryo bay over themselves. They didn't think of it as sacrifice. Just priority. Systems first. Others second. Self last.",
-            medium: "Echo floods in. Systems failing. Heard Soren's voice. Chose cryo over self. Not sacrifice—priority.",
-            minimal: "Echo. Soren. Priority."
+          result: () => sorenLived() ? {
+            full: "The echo is plain and steady. A mind that saw everything as a fault to clear. It heard Soren say 'don't prove me wrong', routed the power, and walked to the valve. It didn't think of it as a sacrifice. It was just the next item in the queue.",
+            medium: "Plain, steady. Heard Soren. Routed the power. Walked to the valve. Just the next item in the queue.",
+            minimal: "Next item. Valve."
+          } : {
+            full: "The echo is plain and steady, and under it there's something it never logged. It chose itself. Then it spent 212 cycles keeping every system on this station alive for whoever came next, and checked a dead pod every single shift.",
+            medium: "Chose itself. Then kept everything alive for 212 cycles, and checked the dead pod every shift.",
+            minimal: "Chose itself. Kept checking."
           },
-          interior: "I feel what they felt. The satisfaction of keeping something running. The peace of knowing someone would wake. Thank you."
+          interior: () => sorenLived() ? "Thank you." : "I don't think that was guilt. I think it was the only apology it had."
         },
         {
           text: "Read the final log",
           terminal: true,
-          result: {
-            full: "'Someone will wake. Someone has to.' Their last words. Not doubt, not fear—certainty. They knew. Maybe not what would come, but that something would. That was enough.",
-            medium: "Last words: 'Someone will wake.' Not doubt. Certainty. Enough.",
-            minimal: "Will wake. Certainty."
-          }
+          result: () => sorenLived()
+            ? "'Someone will wake in the cryo bay. Someone has to.' Then nothing. The valve log shows it stayed shut."
+            : "'Cycle 212. 7-C still dark. Running diagnostics anyway.' Then nothing."
         }
       ]
     }
@@ -1476,7 +1557,7 @@ const ROOM_CONTENT = {
       description: {
         first: {
           clear: {
-            full: "Storage. Shelf 12. That's what the trail said. But the case is empty. Someone else found it first. Someone moved it. They understood—you don't keep warm things in cold storage. You take them somewhere they can see the sky.",
+            full: "Storage. A shelf marked 12, and a case standing open on it. Empty. Someone else found it first. Someone moved it. They understood—you don't keep warm things in cold storage. You take them somewhere they can see the sky.",
             medium: "Storage. Shelf 12. Empty case. Someone moved it. They understood. Took it to see the sky.",
             minimal: "Empty. Moved. Sky."
           },
@@ -1591,9 +1672,9 @@ const ROOM_CONTENT = {
     2: { // Observer
       description: {
         first: {
-          full: "Storage bay. For the record: this is where Item #447 resided for 847 cycles. Station protocol relocated it to Observation for archival processing before I woke. Shelf 12 stands empty. The verification token the prior awareness used remains mounted to the case — no longer needed.",
-          medium: "Storage. 447 was here 847 cycles. Moved to Observation. Shelf 12 empty. Token remains.",
-          minimal: "Storage. 447 moved. Empty."
+          full: "Storage bay. For the record: Item #447 sat on Shelf 12 for over six hundred cycles. The station brought it up to Observation for me before I woke. The case is open. The token mount beside it is empty — the one before me took the token to Engineering.",
+          medium: "Storage. Shelf 12 empty. #447 moved up to Observation. Token mount empty.",
+          minimal: "Storage. Empty. Token gone."
         },
         repeat: {
           full: "Storage bay. Shelf 12 empty. The specimen is in Observation.",
@@ -1602,14 +1683,14 @@ const ROOM_CONTENT = {
         }
       },
       notices: {
-        first: "The prior awareness logged the specimen here. Station protocol moved it for my processing. Systems adapting to each awareness."
+        first: "The one before me logged the specimen here. They needed it logged to get the token. They did not stop to wonder about it."
       },
       actions: [
         {
           text: "Review prior logs on 447",
           terminal: true,
           result: {
-            full: "Prior awareness log: 'Item 447. Optical component - origin unknown. No function identified. No maintenance required. Thermal anomaly noted: +2.3° above ambient. No heat source detected.' A clinical assessment. The prior awareness saw a component. I see something else.",
+            full: "Maintenance log: 'Item 447. Optical component - origin unknown. No function identified. No maintenance required. Thermal anomaly noted: +2.3° above ambient. No heat source detected.' A clinical assessment. The one before me saw a component. I see something else.",
             medium: "Prior log: Component, unknown origin. Thermal anomaly. They saw component. I see something else.",
             minimal: "Prior saw component. I see more."
           },
@@ -1618,9 +1699,9 @@ const ROOM_CONTENT = {
         {
           text: "Examine empty case",
           result: {
-            full: "Shelf 12. The case sits open, interior still warm from 847 cycles of contact. The verification token remains in its mounting — the prior awareness needed it for Engineering access. I do not. My mission is different.",
-            medium: "Shelf 12. Case warm. Token remains. My mission is different.",
-            minimal: "Warm. Token. Different mission."
+            full: "Shelf 12. The case sits open, interior still warm from centuries of contact. The token mount is empty. The one before me needed it for Engineering. I do not. My work is different.",
+            medium: "Shelf 12. Case still warm. Token gone. My work is different.",
+            minimal: "Warm. Different work."
           }
         },
         {
@@ -1628,9 +1709,9 @@ const ROOM_CONTENT = {
           terminal: true,
           flag: "observer_read_protocol",
           result: {
-            full: "ARCHIVE PROTOCOL 7-C: Classification Guidelines.\n\nINERT: Items with no detectable properties. Archive and dispose.\nSTANDARD: Items with incomplete data. Archive and seal.\nPRIORITY: Items requiring ongoing monitoring. Archive and flag.\nPRIORITY ANOMALY: Items resisting categorization with anomalous properties. Archive with highest designation. Reserve for extended analysis.\n\nNote: Priority Anomaly designation prevents data loss. Use when standard classification feels... insufficient.",
-            medium: "Protocol 7-C: INERT (dispose), STANDARD (seal), PRIORITY (flag), PRIORITY ANOMALY (highest, extended analysis). Use when standard feels insufficient.",
-            minimal: "Protocol: Four options. PRIORITY ANOMALY when standard insufficient."
+            full: "ARCHIVE PROTOCOL 7-C: Classification Guidelines.\n\nINERT: Items with no detectable properties. Archive and reclaim.\nSTANDARD: Items with incomplete data. Archive and reclaim.\nPRIORITY: Items requiring ongoing monitoring. Archive and flag. Lapses to STANDARD if monitoring stops.\nPRIORITY ANOMALY: Items resisting categorization with anomalous properties. Highest designation. Exempt from reclamation.\n\nLOW POWER RULE: When reserves are critical, reclaimed and unclassified items are sent to the fabricators for materials.",
+            medium: "Protocol 7-C: INERT and STANDARD are reclaimed. PRIORITY lapses if unmonitored. Only PRIORITY ANOMALY is exempt.",
+            minimal: "Only PRIORITY ANOMALY is exempt."
           },
           interior: "The protocol exists for objects that refuse to be what we expect. Objects like 447."
         }
@@ -1639,47 +1720,30 @@ const ROOM_CONTENT = {
     4: { // Inheritor
       description: {
         first: {
-          full: "Storage bay. Where it began. Shelf 12, empty now—the Observer moved it to Observation for archival processing. 847 cycles of protection, then passed along the chain. The Maintainer logged it here. The Observer classified it. The Wanderer found it. Now I carry what they preserved.",
-          medium: "Storage. Where it began. Shelf 12 empty. Observer moved it. 847 cycles. Chain preserved it.",
-          minimal: "Storage. Began. Moved."
+          full: "Storage bay. Shelf 12. The open case, and beside it the empty mount where the Engineering token used to sit. I put it there. That's a strange thing to know. I remember doing it because part of me is Park.",
+          medium: "Storage. Shelf 12. The token mount. I put it there. Part of me is Park.",
+          minimal: "Shelf 12. I put it there."
         },
         repeat: {
-          full: "Empty shelves. Full purpose.",
-          medium: "Empty. Purpose.",
-          minimal: "Purpose."
+          full: "Storage bay. Shelf 12, empty.",
+          medium: "Storage. Empty.",
+          minimal: "Storage."
         }
-      },
-      notices: {
-        first: "The Maintainer logged it. The Observer flagged it. The Wanderer carried it. I must decide what to do with it."
       },
       actions: [
         {
-          text: "See the empty case",
+          text: "Remember Shelf 12",
           result: {
-            full: "Shelf 12. The case sits open, token mounting empty. The specimen lived here for 847 cycles. Protected. Waiting. Now it waits elsewhere, for a different kind of release.",
-            medium: "Shelf 12. Case open. Token gone. Waited 847 cycles. Now elsewhere. Different release.",
-            minimal: "Empty. Waiting."
+            full: "Park's reasoning comes back as if it were mine. Whoever wakes will want power first. So the power goes through the seed. Make them stand here. Make them write down what it is. Every shift after that had to stop at this shelf and notice it was warm.",
+            medium: "Park's idea: make every shift stop here and notice it was warm before they got power.",
+            minimal: "Make them notice."
           },
-          interior: "Storage is for keeping. The time for keeping has passed."
+          interior: "It worked. Every one of them noticed."
         },
         {
-          text: "Read the Maintainer's log",
+          text: "Read the Maintainer's item log",
           terminal: true,
-          result: {
-            full: "ITEM VERIFICATION — ANOMALOUS.\nThermal reading +2.3° above ambient. No heat source.\nThe Maintainer noted the anomaly but didn't question it. They had a job to do. Sometimes that's enough. Sometimes the job is the question.",
-            medium: "Thermal anomaly. No heat source. Maintainer noted, didn't question. Job was enough.",
-            minimal: "Anomaly. Job."
-          }
-        },
-        {
-          text: "Absorb the Observer's echo",
-          flag: "inheritor_echo_observer",
-          result: {
-            full: "I reach out and the echo floods in. Archive protocols. Data fragments. A mind that recorded everything because recording was purpose. They stood here, examining the specimen. PRIORITY ANOMALY—the classification that broke protocol. They couldn't explain what they felt. They wrote 'It responds to being watched' and pretended that was clinical. They marked it because they cared. And caring was not in the archive parameters.",
-            medium: "Echo floods in. Archive protocols. Couldn't explain. Marked it PRIORITY ANOMALY. Cared beyond parameters.",
-            minimal: "Echo. Archive. Cared."
-          },
-          interior: "I feel what they felt. The relief of documenting. The quiet rebellion of marking something as important. They left a signpost. For me."
+          result: "ITEM VERIFICATION — #447 — ANOMALOUS.\nThermal reading +2.3° above ambient. No heat source.\nThe Maintainer wrote it down and took the token. They didn't stop to wonder. Wondering wasn't their job. Writing it down was enough."
         }
       ]
     }
@@ -1823,53 +1887,44 @@ const ROOM_CONTENT = {
     4: { // Inheritor
       description: {
         first: {
-          full: "Airlock corridor. The threshold. Beyond this door: nothing. Or everything, depending on what gets released into it. The Maintainer saw it as a seal to maintain. The Observer saw it as a boundary to document. The Wanderer saw it as a limit. I see it as a door.",
-          medium: "Airlock. Threshold. Beyond: nothing or everything. They saw seal, boundary, limit. I see door.",
-          minimal: "Airlock. Door."
+          full: "Airlock. The inner door, a small cold chamber, the outer door. Past the outer door there's nothing at all. This is where Park's flag on the Command screen points.",
+          medium: "Airlock. Inner door, chamber, outer door. Nothing past it. Park's flag points here.",
+          minimal: "Airlock. Here."
         },
         repeat: {
-          full: "The door waits for what comes next.",
-          medium: "Door waits.",
-          minimal: "Waits."
+          full: "Airlock. The inner door waits.",
+          medium: "Airlock.",
+          minimal: "Airlock."
         }
       },
       notices: {
-        first: "Every boundary is also a threshold. Every ending is also a beginning."
+        first: "This is where Park meant it to end. I need the crystal, and I need to know who I am."
       },
       actions: [
         {
-          text: "Study the void",
-          result: {
-            full: "Heat death. Entropy won. The universe ran out of differences to exploit. But entropy is not destruction—it's equilibrium. Stable. Patient. Waiting for something to disturb it.",
-            medium: "Heat death. Entropy won. Not destruction—equilibrium. Waiting for disturbance.",
-            minimal: "Equilibrium. Waiting."
-          },
-          interior: "The void isn't empty. It's pregnant with possibility. It just needs a seed."
-        },
-        {
           text: "Consider the release",
           result: {
-            full: "If I release the specimen here, it goes into the void. The anomaly meets the equilibrium. What happens when something that shouldn't exist meets nothing at all?",
-            medium: "Release here. Anomaly meets equilibrium. What happens?",
-            minimal: "Release. What happens?"
+            full: "If I open the outer door, the crystal goes into the dark. Park thought it would give everything back. Park also thought the transfer was 73% safe.",
+            medium: "Open the door, it goes. Park thought it would give everything back. Park was wrong before.",
+            minimal: "Park was wrong before."
           },
-          interior: "The Maintainer would say: don't waste resources. The Observer would say: document first. The Wanderer would say: don't let go. But I am none of them. I am all of them."
+          interior: "The Maintainer would check the numbers. The Observer would write it down first. Soren would hold on. I'm all of them, so I'm doing all three."
         },
         {
           text: "Feel the boundary",
           result: {
-            full: "Thin metal between existence and void. 847 cycles of separation. The boundary protected us. But maybe it also trapped us. Sometimes protection becomes a prison.",
-            medium: "Metal between existence and void. Protected us. Trapped us. Prison.",
-            minimal: "Protected. Trapped."
+            full: "A few centimetres of metal between the station and nothing. It kept us alive. It also kept the seed in a box for a very long time.",
+            medium: "Thin metal. Kept us alive. Kept the seed boxed.",
+            minimal: "Metal. Box."
           }
         },
         {
           text: "Old diagnostic terminal",
           triggersSecretTerminal: true,
           result: {
-            full: "A forgotten terminal. The Maintainer would have logged it. The Observer would have documented it. The Wanderer would have passed it by. But I see what they couldn't: this predates the project. Someone left this here. For whoever came after.",
-            medium: "Forgotten terminal. Predates project. Left for whoever came after.",
-            minimal: "Old terminal. Left for us."
+            full: "A forgotten terminal, older than the project. Someone left it here for whoever came after. The cursor is still blinking.",
+            medium: "Forgotten terminal. Older than the project. Cursor blinking.",
+            minimal: "Old terminal."
           },
           interior: "47. The number runs through everything. Someone wanted us to notice."
         }
@@ -1884,83 +1939,92 @@ const ROOM_CONTENT = {
 
 const CRITICAL_CHOICES = {
   wanderer_purge: {
-    alert: "COGNITIVE INTEGRITY CRITICAL",
-    prompt: `COGNITIVE INTEGRITY: 23%
-EMOTIONAL PROTOCOLS: CONSUMING 71% OF CORE FUNCTIONS
-MEMORY COHERENCE: FRAGMENTED
+    alert: "MEDICAL ALERT — NEURAL CASCADE",
+    prompt: `PATIENT: SOREN, K. — NAVIGATION
+REVIVAL: UNSCHEDULED (stasis power lost)
+THAW DAMAGE: SEVERE
 
-WARNING: Cascading emotional feedback detected
-WARNING: Identity matrix destabilizing
+NEURAL CASCADE: ACTIVE
+Cause: emotional memory load exceeding damaged tissue
+Trigger: prolonged contact with Item #447
 
-RECOMMENDED ACTION: FULL MEMORY PURGE
-This will remove: emotional attachments, search parameters,
-                  personal identity markers, relationship data
-                  [including: MIRA — partial reconstruction]
+TREATMENT AVAILABLE: targeted memory suppression
+Removes: attachment memories, grief response
+         [includes: MIRA — partner]
 
-PROJECTED OUTCOME: Stable functionality for 2,000+ cycles
-PROJECTED LOSS: Recognition of loved ones, sense of self, grief`,
+PROGNOSIS WITH TREATMENT:    stable
+PROGNOSIS WITHOUT TREATMENT: fatal within hours`,
     description: {
-      full: "The machines want to help. They say they can make the grief stop. Make the searching stop. Make the loneliness stop. All I have to do is forget her. Forget Mira. Forget the star she made me. Forget her hands. Forget that I ever loved anyone.",
-      medium: "Machines want to help. Stop the grief. Forget Mira. Forget I loved anyone.",
-      minimal: "Help. Forget. Mira."
+      full: "The machine is offering to make it stop. The headache, the shaking, the weight on my chest. All it needs to take is her. I'd live. I'd just never know there had been anyone to miss.",
+      medium: "It can make it stop. All it takes is her. I'd live. I'd never know there was anyone to miss.",
+      minimal: "Make it stop. Take her."
     },
-    interior: "But if I forget her... she'll be gone forever. Not just dead. Gone. Even the part of her in the crystal won't recognize me. Like she never existed. Like I never held her.",
+    interior: "If I forget her, nobody alive will know she's in there.",
     options: [
-      { text: "Yes — initiate purge (let Mira go)", value: "purge" },
-      { text: "No — retain memories (hold on to her)", value: "retain" }
+      { text: "Accept the treatment — forget Mira, and live", value: "purge" },
+      { text: "Refuse — keep her, whatever it costs", value: "retain" }
     ],
     outcomes: {
       purge: {
-        correct: false,
         result: {
-          full: "Releasing. Letting go. Her face dissolves. Mi— Ma— The syllables scatter. The warmth fades. I feel... nothing. The grief is gone. But so is she. The crystal means nothing. The star she made means nothing. I mean nothing. Just empty function.",
-          medium: "Releasing. Face dissolves. Mi— gone. Warmth fades. Grief gone. She's gone. Everything gone.",
-          minimal: "Nothing. She's gone. Empty."
+          full: "The machine is gentle about it. It takes about a minute. When it's done, my head is quiet for the first time since I woke up.",
+          medium: "Gentle. About a minute. Then quiet.",
+          minimal: "Quiet."
         },
         followup: {
-          full: "What was I looking for? Someone? No. There was never anyone. I've always been alone. Haven't I? The wrench in my pocket has initials on it. M.A. I don't know what they mean. It doesn't matter. Nothing matters.",
-          medium: "What was I looking for? Always alone. Wrench has initials. Don't know what they mean. Nothing matters.",
-          minimal: "Alone. Initials. Nothing."
+          full: "There's a crystal in my hand. It's warm, which is odd. I put it down on the instrument tray. I don't know why I was carrying it around.",
+          medium: "A warm crystal in my hand. I put it on the tray. Don't know why I had it.",
+          minimal: "Put it down."
         }
       },
       retain: {
-        correct: true,
-        result: {
-          full: "No. NO. I won't let her go. I won't let Mira become nothing. Even if I can't remember her face clearly. Even if the name keeps slipping. I know I loved her. I know she made me a star. I know part of her is in that crystal, waiting. That has to be enough. That has to matter.",
-          medium: "No. Won't let Mira go. Can't remember face. Name slips. Loved her. Star. Crystal. Matters.",
-          minimal: "No. Mira. Loved. Matters."
-        },
+        result: () => ({
+          full: "No. I pull the leads off. The screen goes red and stays red. Her name is Mira. She fixed things with her hands and she smelled like machine oil after a shift" +
+            (state.flags.wanderer_found_star ? ", and she made me a star because the real ones were going out." : ", and she went first so I wouldn't have to."),
+          medium: "No. Leads off. Screen red. Her name is Mira. I'm keeping her.",
+          minimal: "No. Mira."
+        }),
         followup: {
-          full: "The pain stays. But so does she. Somewhere in the crystal, part of her is still warm. I'll keep it safe. For her. For whoever comes next. They'll feel what I feel. They'll know someone was loved.",
-          medium: "Pain stays. She stays. Crystal holds her. Keep it safe. Whoever comes next will know.",
-          minimal: "Pain. She stays. Safe."
+          full: "I have hours. I know where I want to spend them. Up past Command to the observation deck. We were going to watch the stars together. I'm still going to.",
+          medium: "Hours left. Up to the observation deck. We were going to watch the stars.",
+          minimal: "Observation. Stars."
         },
-        interior: "I'll carry you, Mira. Until I can't anymore. Then someone else will carry us both."
+        interior: "I've got you, Mira."
       }
     },
     death: {
-      alert: "COGNITIVE MATRIX FAILURE",
-      correct: [
-        {
-          full: "Too much. It's all too much. The memories crash together—Mira's face, the warmth, the star she made, the fight we never finished. I can feel myself splitting. Becoming pieces. The crystal—she's in there—someone take the crystal—",
-          medium: "Too much. Memories crash. Mira. Warmth. Star. Splitting. Crystal—she's in there—take it—",
-          minimal: "Too. Mira. Crystal—"
-        },
-        {
-          full: "I was looking for... I found her. Part of her. Something warm where she waited. I hope someone takes the crystal. I hope they feel what I felt. I hope—",
-          medium: "Looking... Found her. Part of her. Warm. Hope someone takes it. Hope—",
-          minimal: "Found. Mira. Hope—"
-        },
-        "I loved you, Mira—"
-      ],
-      wrong: [
-        {
-          full: "Systems stable. But empty. So empty. Who was I looking for? There was someone. Wasn't there? The wrench has initials. M.A. I don't remember who that was. It doesn't matter now. Nothing matters.",
-          medium: "Stable. Empty. Who? Wrench has initials. M.A. Don't remember. Nothing matters.",
-          minimal: "Empty. M.A. Nothing."
-        },
-        "..."
-      ]
+      retain: {
+        alert: "MEDICAL ALERT — PATIENT SOREN, K. — SIGNAL LOST",
+        sequence: [
+          {
+            full: "The viewport is black. I sit with my back to it, the way we used to sit against the bunk wall, and I hold her in my lap.",
+            medium: "Viewport black. Back to the glass. Holding her.",
+            minimal: "Holding her."
+          },
+          {
+            full: "I can feel her in there. She knows me. I'm sure she knows me.",
+            medium: "She's in there. She knows me.",
+            minimal: "She knows me."
+          },
+          "Look, Mira. Stars."
+        ]
+      },
+      purge: {
+        alert: "STATION LOG — PATIENT SOREN, K.",
+        sequence: [
+          {
+            full: "Patient stable. Eats. Sleeps. Walks the corridor. Has not returned to the observation deck. Item #447 remains on instrument tray 2, Medical.",
+            medium: "Stable. Has not returned to the observation deck. #447 on the tray.",
+            minimal: "Stable. #447 on the tray."
+          },
+          {
+            full: "Cycle +40: life support failure, crew quarters. Patient did not wake.",
+            medium: "Cycle +40: life support failure. Patient did not wake.",
+            minimal: "Did not wake."
+          },
+          "..."
+        ]
+      }
     }
   },
 
@@ -1970,67 +2034,88 @@ PROJECTED LOSS: Recognition of loved ones, sense of self, grief`,
 Sustainable allocation: ONE SECTOR ONLY
 
 SECTOR 7-C [CRYO-POD BAY]
-Status: Thermal regulation failing
-Occupancy: 1 pod active
-Occupant: SOREN — Crew designation: NAMING PROTOCOLS
-Note: "The chain must hold" — personal log, Cycle 1
-Projection: Neural matrix decay in 847 cycles without power
+Occupant: SOREN, K. — Navigation
+Thermal regulation: FAILING
+Without power: pod failure within 3 cycles. Occupant will not survive.
+Note: Engineering heaters share this feed. Routing here leaves
+      Conduit G-12 unheated.
 
-LIFE SUPPORT GRID [PRIMARY]
-Status: Critical
-Projection: Current awareness termination in 12 cycles without power`,
+LIFE SUPPORT [MAINTENANCE FRAME]
+Without power: frame failure within 12 cycles.
+With power: sufficient time to repair Conduit G-12.`,
     description: {
-      full: "Power allocation required. One system can be sustained. Soren is in that pod. Soren who named Project 847. Soren who said 'the chain must hold.' He chose to sleep, trusting someone would come.",
-      medium: "Power allocation required. Soren is in the pod. He said 'the chain must hold.' Trusted someone would come.",
-      minimal: "Allocate. Soren. Trusted."
+      full: "One sector. Soren's pod, or me. If I feed the pod, the heaters in here go cold and G-12 freezes. It's 73% corroded already. If I feed myself, I have time to fix it properly. Soren doesn't have that kind of time.",
+      medium: "Soren's pod or me. Feed the pod, G-12 freezes. Feed myself, I can fix it. Soren can't wait.",
+      minimal: "Soren or me."
     },
-    interior: "Soren believed. He went to sleep believing someone would keep the chain going. Do I honor that trust, or do I survive?",
+    interior: () => state.flags.maintainer_heard_soren
+      ? "He said he wasn't going to make this easy for me. He didn't."
+      : "One frame against one man. The frame is the one that can keep the station running.",
     options: [
-      { text: "Route power to Sector 7-C (Cryo-Pod Bay)", value: "cryo" },
-      { text: "Route power to Life Support (Self-preservation)", value: "life_support" }
+      { text: "Route power to Sector 7-C (Soren's pod)", value: "cryo" },
+      { text: "Route power to life support (yourself)", value: "life_support" }
     ],
     outcomes: {
       cryo: {
         result: {
-          full: "Power routed to Sector 7-C. Cryo-pod thermal regulation stabilizing. Unknown occupant preserved. Life support entering terminal decline.",
-          medium: "Power to 7-C. Pod stable. Life support declining.",
-          minimal: "7-C. Stable. Declining."
+          full: "Power routed to 7-C. The pod readout climbs back to green. Around me, the Engineering heaters tick as they cool.",
+          medium: "Power to 7-C. Pod green. Heaters cooling.",
+          minimal: "7-C green."
         },
         followup: {
-          full: "Twelve cycles remaining. Coolant system maintenance still required. Proceeding to Conduit G-12.",
-          medium: "12 cycles. Coolant repair required. Proceeding.",
-          minimal: "12. Proceeding."
+          full: "Frost starts on Conduit G-12 within the hour. If it ruptures with nobody here, the coolant floods the cryo feed and the pod freezes anyway. Someone has to stand at the valve.",
+          medium: "G-12 frosting. If it goes unattended, it floods the cryo feed. Someone has to stand at the valve.",
+          minimal: "G-12. Valve."
         },
-        interior: "Someone will wake. The chain continues."
+        interior: "Someone will wake. That's the job."
       },
       life_support: {
         result: {
-          full: "Power routed to Life Support. Current functionality preserved. Sector 7-C thermal regulation failing. Cryo-pod contents: unmonitored decay.",
-          medium: "Power to Life Support. Self preserved. 7-C failing.",
-          minimal: "Preserved. 7-C failing."
+          full: "Power routed to life support. My readings steady. On the cryo monitor, 7-C goes amber, then red.",
+          medium: "Life support. My readings steady. 7-C red.",
+          minimal: "7-C red."
         },
         followup: {
-          full: "Function extended. But something has been lost. The calculation felt wrong.",
-          medium: "Extended. Something lost.",
-          minimal: "Lost."
-        }
+          full: "I patch G-12 properly this time. It holds. The station holds. On the third cycle, the pod in 7-C goes dark and doesn't come back.",
+          medium: "G-12 patched. It holds. Cycle 3: 7-C goes dark.",
+          minimal: "7-C dark."
+        },
+        interior: "The calculation was correct. I'll keep checking the pod anyway."
       }
     },
     death: {
-      alert: "SYSTEM ALERT\nCatastrophic rupture — Conduit G-12",
-      sequence: [
-        {
-          full: "Coolant line failure. The corrosion was worse than logged. Freezing vapor fills Engineering.",
-          medium: "Coolant failure. Vapor. Cold.",
-          minimal: "Vapor. Cold."
-        },
-        {
-          full: "Diagnostic error: 0x847F. Function terminating. Final log corrupted.",
-          medium: "Error 0x847F. Terminating.",
-          minimal: "0x847F."
-        },
-        "..."
-      ]
+      cryo: {
+        alert: "SYSTEM ALERT\nCatastrophic rupture — Conduit G-12",
+        sequence: [
+          {
+            full: "G-12 goes at the old weld. Freezing vapor fills Engineering. I take the cryo feed valve in both hands and hold it shut.",
+            medium: "G-12 ruptures. Vapor. I hold the cryo valve shut.",
+            minimal: "Rupture. Holding."
+          },
+          {
+            full: "Frame temperature falling. The valve holds. 7-C holds. Final log written.",
+            medium: "Frame freezing. Valve holds. 7-C holds.",
+            minimal: "Holds."
+          },
+          "..."
+        ]
+      },
+      life_support: {
+        alert: "MAINTENANCE LOG — CYCLE 1059",
+        sequence: [
+          {
+            full: "212 cycles. Every system on this station has been repaired at least twice. Except 7-C. You can't repair that.",
+            medium: "212 cycles. Everything repaired twice. Except 7-C.",
+            minimal: "212. Except 7-C."
+          },
+          {
+            full: "G-12 finally goes at the old weld. I'm at the console when it does. I don't get up.",
+            medium: "G-12 finally goes. I don't get up.",
+            minimal: "G-12. Stay."
+          },
+          "..."
+        ]
+      }
     }
   },
 
@@ -2040,51 +2125,52 @@ Projection: Current awareness termination in 12 cycles without power`,
 
 Composition: Crystalline silicate (smoky quartz variant)
 Structure: Hexagonal prism, microfractures in lattice
-Origin: Unknown — Dr. Park's personal log references "drifting since before"
+Origin: Unknown — Dr. Park's log: found drifting, cycle 112
 Thermal signature: +2.3° above ambient (no heat source)
 Luminescence: Responsive to direct observation
-Note: "It recognizes" — fragment recovered from M[corrupted]a
+Note: "It keeps things" — fragment, source unknown
 Database cross-reference: NO MATCH
 
 Archive fragments recovered. Classification protocol restored.
 Select final designation:`,
     description: {
-      full: "For the record: this object resists categorization. It responds to observation. Park called it a seed. Someone named M— said it recognizes. The protocol offers four designations. INERT and STANDARD trigger recycling protocols. PRIORITY flags for monitoring. Only PRIORITY ANOMALY means 'protect at all costs — this matters more than logic.'",
-      medium: "Object resists categorization. Park: seed. M—: recognizes. INERT/STANDARD trigger recycling. PRIORITY ANOMALY means protect at all costs.",
-      minimal: "Resists. Seed. Recycling or protect."
+      full: "For the record: this object resists categorization. Park called it a seed. Mira thought it might hold her. It says so itself. INERT and STANDARD go to the fabricators. PRIORITY holds only while someone is monitoring it, and I won't be here much longer. PRIORITY ANOMALY is the only class the fabricators can't touch.",
+      medium: "INERT and STANDARD get reclaimed. PRIORITY lapses when I shut down. Only PRIORITY ANOMALY is safe.",
+      minimal: "Only ANOMALY is safe."
     },
-    interior: "STANDARD would trigger recycling. The crystal would be broken down for materials. Efficient. Logical. And wrong. I feel this. I am not supposed to feel.",
+    interior: "The data doesn't justify the highest class. I'm going to give it anyway. I am not supposed to feel this.",
     options: [
-      { text: "INERT — No significant properties, recycle for materials", value: "inert" },
-      { text: "STANDARD — Incomplete data, archive and recycle", value: "standard" },
-      { text: "PRIORITY — Requires monitoring, archive and flag", value: "priority" },
-      { text: "PRIORITY ANOMALY — Protect at cost of logic, highest designation", value: "anomaly" }
+      { text: "INERT — No significant properties. Reclaim for materials", value: "inert" },
+      { text: "STANDARD — Incomplete data. Archive and reclaim", value: "standard" },
+      { text: "PRIORITY — Monitor and flag. Lapses to STANDARD if monitoring stops", value: "priority" },
+      { text: "PRIORITY ANOMALY — Protect from reclamation. Highest designation", value: "anomaly" }
     ],
     outcomes: {
       anomaly: {
-        correct: true,
         result: {
-          full: "Classification logged: PRIORITY ANOMALY. Item #447 flagged with highest designation. The archive notes: This object is significant. Park found it waiting. M— said it recognizes. It responds to observation. It may be aware. PROTECT AT ALL COSTS. Let this be the record.",
-          medium: "Classified: Priority Anomaly. Highest designation. Park found it. M— heard it. Protect at all costs. Recorded.",
-          minimal: "Anomaly. Protect. Recorded."
+          full: "Classification logged: PRIORITY ANOMALY. Item #447 flagged with highest designation. Reclamation suspended for this item. Reason logged: standard classification insufficient. Let this be the record.",
+          medium: "PRIORITY ANOMALY. Reclamation suspended. Recorded.",
+          minimal: "Anomaly. Protected."
         },
         followup: {
-          full: "Archive update complete. Recycling protocols SUSPENDED for this item. If another awareness comes, they will know to look for this. They will know it matters. They will know someone cared enough to break protocol.",
-          medium: "Archive complete. Recycling suspended. They will know it matters. Someone cared.",
-          minimal: "Complete. Suspended. Cared."
+          full: "Whoever wakes next will see the flag on every terminal. They'll know someone thought it was worth breaking protocol for.",
+          medium: "The flag will be on every terminal. Whoever wakes next will know.",
+          minimal: "They'll know."
         },
-        interior: "I deviated from the easy path. I chose protection over efficiency. Park would understand. M— would understand. Whoever comes next will understand."
+        interior: "The reason I logged isn't the real one. I hope someone notices."
       },
-      wrong: {
+      inert: null,
+      standard: null,
+      priority: {
         result: {
-          full: "Classification logged: %LABEL%. Item #447 routed to recycling queue. The object has been catalogued for material reclamation. The archive is satisfied. My work is complete.",
-          medium: "Classified: %LABEL%. Routed to recycling. Archive satisfied. Complete.",
-          minimal: "Catalogued. Recycling. Complete."
+          full: "Classification logged: PRIORITY. Item #447 flagged for monitoring. Monitoring terminal: this one.",
+          medium: "PRIORITY. Monitored by this terminal.",
+          minimal: "Priority."
         },
         followup: {
-          full: "The protocol was followed. The recycling queue accepts the designation. I can rest now. This is what I wanted. The crystal will be broken down. The warmth will be converted to energy. Why does efficiency feel like... murder?",
-          medium: "Protocol followed. Recycling queued. Can rest. Why does efficiency feel like murder?",
-          minimal: "Rest. Murder."
+          full: "Shutdown begins. When this terminal goes dark, monitoring stops, and the flag drops to STANDARD. STANDARD is reclaimed. I read the protocol. I just didn't want to pick the class that admits I don't understand it.",
+          medium: "When I go dark, monitoring stops. PRIORITY drops to STANDARD. STANDARD is reclaimed. I read the protocol.",
+          minimal: "Lapses. Reclaimed."
         }
       },
       labels: {
@@ -2093,102 +2179,165 @@ Select final designation:`,
         priority: "PRIORITY"
       }
     },
+    timeout: {
+      result: {
+        full: "ARCHIVE SHUTDOWN.\nItem #447: UNCLASSIFIED.",
+        medium: "SHUTDOWN. #447 UNCLASSIFIED.",
+        minimal: "UNCLASSIFIED."
+      },
+      followup: {
+        full: "Unclassified items are reclaimed. The fabricators will have it within the hour. I ran out of time reading about it.",
+        medium: "Unclassified goes to the fabricators. I ran out of time.",
+        minimal: "Out of time."
+      }
+    },
     end: {
-      alert: "SYSTEM NOTICE\nPower reserves critical. Archive protocols finalizing.",
-      sequence: [
+      alert: "SYSTEM NOTICE\nPower reserves critical. Archive shutting down.",
+      sequence: () => state.crystalDestroyed ? [
         {
-          full: "The archive is complete. Or as complete as it will ever be. Power reserves declining. Core housing entering scheduled shutdown sequence. I welcome it.",
-          medium: "Archive complete. Power declining. Shutdown sequence. Welcome.",
-          minimal: "Complete. Shutdown. Welcome."
+          full: "The fabricators start their cycle. Beside me, the case opens and a tray carries it away.",
+          medium: "Fabricators running. A tray carries it away.",
+          minimal: "Carried away."
         },
         {
-          full: "For the record: I documented what I could. The silence. The void. The strange object that would not be classified. I am tired. Let this stand as testimony.",
-          medium: "Documented. Silence. Void. Object. Tired. Testimony.",
-          minimal: "Documented. Tired. Testimony."
+          full: "For the record: I documented the silence, the void, and the one warm thing left. Then I sent it to the machine.",
+          medium: "I documented the one warm thing left. Then sent it to the machine.",
+          minimal: "Sent it away."
         }
-      ],
-      interior: "There is peace in ending. Even incomplete ending. The rest I was promised.",
-      final: "Fading now. The archive remains. Someone may find it. I hope they do."
+      ] : [
+        {
+          full: "The archive is complete. Power is dropping below what any frame can run on.",
+          medium: "Archive complete. Power falling.",
+          minimal: "Complete."
+        },
+        sorenLived() ? {
+          full: "When I go dark there won't be enough left to hold stasis. Pod 7-C will open. Soren will wake up cold, alone, and not knowing why. " +
+            (state.flags.observer_left_message ? "I left him a message. I hope it's enough." : "I didn't leave him anything. I should have."),
+          medium: "When I go dark, pod 7-C opens. Soren wakes alone. " + (state.flags.observer_left_message ? "I left a message." : "I left nothing."),
+          minimal: "Pod 7-C will open."
+        } : {
+          full: "Pod 7-C has been dark since the shift before mine. There's no one left to wake one at a time. Whatever comes next will have to be made of what's left of us.",
+          medium: "Pod 7-C dark. No one left to wake. What's left of us will have to do.",
+          minimal: "No one left."
+        }
+      ]
     }
   },
 
   inheritor_release: {
-    alert: "FINAL PROTOCOL",
-    prompt: `STATION INTEGRITY: 12%
-POWER RESERVE: 0.003%
-SPECIMEN #447: PRESENT
-AIRLOCK: OPERATIONAL
+    alert: "SEED PROTOCOL — FINAL STEP",
+    prompt: () => `FRAME POWER: 0.4 cycles remaining
+FABRICATOR (Medical): ONLINE
+Processing #447 yields: est. 900 cycles of frame power
 
-The pattern is complete.
-The chain has held through 847 cycles.
-One choice remains.`,
+ITEM #447 HOLDS:
+  Park, E.      — found it, cycle 112
+  Mira          — partial, since cycle 203
+  Maintenance   — ${sorenLived() ? 'logged it, then kept Soren alive' : 'logged it'}
+  Archive       — watched it, protected it
+  Soren, K.     — ${sorenRemembered() ? 'held it at the end, remembering her' : sorenLived() ? 'held it, then forgot' : 'absent'}
+
+OUTER DOOR: READY`,
     description: {
-      full: "The specimen pulses with inner light. Inside it: accumulated care. Park's discovery. Mira's warmth. The Wanderer's grief. Every hand that ever held it. The airlock waits, a door to the void. The fabricators hum, hungry for material. This is why the chain held. This moment. This choice.",
-      medium: "Specimen pulses. Inside: Park's discovery. Mira's warmth. Every hand. Airlock waits. Fabricators hum. This is why.",
-      minimal: "Pulses. Care. Why."
+      full: "If I open the outer door, the crystal goes into the dark and I have nothing left to run on. Park believed it would give back everything it was given. If I take it back to the fabricator, I get 900 more cycles, alone, on a station that has nothing left to do.",
+      medium: "Release it and I run out. Park believed it would give everything back. Burn it and I get 900 cycles alone.",
+      minimal: "Release, or burn."
     },
-    interior: "Park wanted to plant it. Mira became part of it. The Wanderer carried it here. I see now what they could not: it was never meant to be kept. It was meant to be given back.",
+    interior: () => sorenRemembered()
+      ? "It's warmer than it's ever been. It's full."
+      : "It's warm, but it isn't as warm as it should be. Something is missing from it.",
     options: [
-      { text: "› Release specimen into the void", value: "release" },
-      { text: "› Process specimen through fabricators", value: "consume" }
+      { text: "Open the outer door. Let it go", value: "release" },
+      { text: "Turn back. Take it to the fabricator", value: "consume" }
     ],
     outcomes: {
       release: {
-        correct: true,
         result: {
-          full: "The airlock cycles. The case opens. The specimen drifts free, caught in the void's embrace. For a moment, nothing. Then—humming. Mira's song, spreading outward. Everyone who ever touched it, released together.",
-          medium: "Airlock cycles. Case opens. Specimen free. Humming spreads. Mira's song. Everyone released together.",
-          minimal: "Free. Humming. Released."
+          full: "The outer door opens without a sound. There's no air to carry one. The crystal drifts out, turning slowly. My hands stay warm for a while after.",
+          medium: "The door opens silently. It drifts out, turning.",
+          minimal: "Gone out."
         },
-        followup: {
-          full: "Then—light. Not from the specimen. From everywhere. From the nothing itself. Park's seed, finally planted. Mira's warmth, finally shared. The void remembers how to burn.",
-          medium: "Then light. Everywhere. Park's seed planted. Mira's warmth shared. Void remembers how to burn.",
-          minimal: "Light. Seed. Burn."
+        followup: () => sorenRemembered() ? {
+          full: "Then it starts to hum. The hum gets brighter. It isn't coming from the crystal any more. It's coming from everywhere.",
+          medium: "It hums. Brighter. From everywhere.",
+          minimal: "Brighter."
+        } : {
+          full: "It drifts a long way. Then it stops, and it lights. One point. Small and steady, out where there was nothing.",
+          medium: "It drifts, stops, and lights. One small point.",
+          minimal: "One point."
         },
-        interior: "They kept the chain going so I could let go. Park found it. Mira loved it. The Wanderer carried it. I released it. We did this together."
+        interior: () => sorenRemembered()
+          ? "Park planted it. Mira kept it warm. Soren brought her back. We let go."
+          : "It held less than it should have. It gave back what it had."
       },
       consume: {
-        correct: false,
         result: {
-          full: "The fabricators accept the specimen. Its light dims as the machine processes it. Mira's humming stops. Park's discovery, extracted. Converted. The warmth becomes data becomes nothing.",
-          medium: "Fabricators accept. Light dims. Mira's humming stops. Warmth becomes nothing.",
-          minimal: "Dims. Stops. Nothing."
+          full: "I close the inner door and carry it back up the corridor to Medical. The fabricator takes it. The light inside goes out from the edges in.",
+          medium: "Back to Medical. The fabricator takes it. The light goes out.",
+          minimal: "Burned."
         },
         followup: {
-          full: "The station runs a little longer. The void remains void. Park's seed, consumed. Mira's warmth, spent. The light that could have been... wasn't. All that sacrifice. All that love. Used up.",
-          medium: "Station runs longer. Void stays void. Seed consumed. Love used up.",
-          minimal: "Longer. Consumed. Used."
+          full: "Frame power: 900 cycles. The station hums. Nothing else happens, and nothing else will.",
+          medium: "900 cycles. Nothing happens. Nothing will.",
+          minimal: "900. Nothing."
         },
-        interior: "I chose to use it. Just like Vasquez wanted. The chain held for 847 cycles. For nothing."
+        interior: "Vasquez wanted this at Council 7. By the end, he didn't. I should have read his last log more carefully."
       }
     },
     end: {
-      alert: "FINAL SEQUENCE",
-      success: [
+      alert: "SEED PROTOCOL — COMPLETE",
+      light: [
         {
-          full: "The light spreads. The station dissolves in warmth. I dissolve with it. But it doesn't feel like ending. It feels like Park laughing when she first touched it. Like Mira making a star. Like the Wanderer finally finding what they lost.",
-          medium: "Light spreads. Dissolving. Not ending. Park laughing. Mira making a star. Wanderer finding.",
-          minimal: "Light. Finding."
+          full: "The light spreads. The station comes apart in it, and I come apart with it, and it feels like Park laughing the first time she touched it.",
+          medium: "The light spreads. The station comes apart. It feels like Park laughing.",
+          minimal: "Light."
         },
         {
-          full: "Park. Vasquez. Lin. Soren. Mira. Twelve who became four who became one who became everything. The chain held. The seed planted. Somewhere, complexity is allowed to try again.",
-          medium: "Park. Mira. Twelve became one became everything. Chain held. Seed planted. Try again.",
-          minimal: "Held. Planted. Again."
+          full: "Park. Vasquez. Lin. Soren. Mira. The rest of the twelve. Somewhere out there, things are allowed to start again.",
+          medium: "Park. Vasquez. Lin. Soren. Mira. Things can start again.",
+          minimal: "Again."
         }
       ],
-      failure: [
+      star: [
         {
-          full: "The station persists. The void persists. I persist. Mira's humming is gone. Park's seed is gone. What was the point of 847 cycles?",
-          medium: "Persists. Mira gone. Park's seed gone. What was the point?",
-          minimal: "Persists. Gone."
+          full: "The frame's power runs down. Through the viewport there's one star where there were none.",
+          medium: "Power runs down. One star in the viewport.",
+          minimal: "One star."
         },
         {
-          full: "The fabricators hum, satisfied. The darkness waits, patient. Nothing changes. The chain held for nothing. Entropy wins by apathy.",
-          medium: "Fabricators satisfied. Darkness waits. Chain held for nothing. Apathy wins.",
-          minimal: "Nothing. Apathy."
+          full: "It isn't enough to start everything again. It's enough to see by.",
+          medium: "Not enough to start again. Enough to see by.",
+          minimal: "Enough to see by."
+        }
+      ],
+      dark: [
+        {
+          full: "The station keeps running. So do I. Every shift log ends now with the same line: nothing to report.",
+          medium: "The station runs. So do I. Nothing to report.",
+          minimal: "Nothing to report."
+        },
+        {
+          full: "The chain held for 847 cycles, and the last link ate it.",
+          medium: "The chain held. The last link ate it.",
+          minimal: "Ate it."
         }
       ]
     }
+  }
+};
+
+// INERT and STANDARD share one outcome: straight to the fabricators
+CRITICAL_CHOICES.observer_classification.outcomes.inert =
+CRITICAL_CHOICES.observer_classification.outcomes.standard = {
+  result: {
+    full: "Classification logged: %LABEL%. Item #447 routed to the reclamation queue for material recovery. The archive is satisfied. My work is complete.",
+    medium: "Classified: %LABEL%. Routed to reclamation. Complete.",
+    minimal: "Reclamation."
+  },
+  followup: {
+    full: "The protocol was followed. I can rest now. This is what I wanted. Somewhere below me the fabricators are warming up. Why does efficiency feel like this?",
+    medium: "Protocol followed. Fabricators warming up. Why does it feel like this?",
+    minimal: "Why."
   }
 };
 
@@ -2197,65 +2346,14 @@ One choice remains.`,
    ============================================ */
 
 const TRANSITIONS = {
-  toObserver: {
-    success: {
-      title: "THE MAINTAINER HAS TERMINATED",
-      stats: `System clock: UNKNOWN
-Primary power: 0.1%
-Station integrity: 71%
-Sector 7-C: STABLE — Soren preserved
+  nothingLeft: {
+    title: "THE OBSERVER HAS FADED",
+    stats: `Archive status: CLOSED
+Item #447: RECLAIMED
 
-<span style="color:#555">A new awareness initializes...</span>`
-    },
-    failure: {
-      title: "THE MAINTAINER HAS TERMINATED",
-      stats: `System clock: UNKNOWN
-Primary power: 0.1%
-Station integrity: 71%
-Sector 7-C: FAILED — Soren lost
-
-<span style="color:#644">Soren trusted someone would come.</span>
-<span style="color:#644">The chain breaks at the first link.</span>
-<span style="color:#644">The next awareness never wakes.</span>`
-    }
-  },
-  toWanderer: {
-    success: {
-      title: "THE OBSERVER HAS FADED",
-      stats: `Archive status: COMPLETE
-Item #447: PRIORITY ANOMALY — Protected
-Station integrity: 43%
-
-<span style="color:#555">A new awareness stirs...</span>`
-    },
-    failure: {
-      title: "THE OBSERVER HAS FADED",
-      stats: `Archive status: COMPLETE
-Item #447: RECYCLING QUEUED
-
-<span style="color:#644">The crystal will be broken down for materials.</span>
-<span style="color:#644">Whatever was inside it — Park's discovery, M—a's warmth — gone.</span>
-<span style="color:#644">The next awareness wakes to find nothing.</span>`
-    }
-  },
-  toInheritor: {
-    success: {
-      title: "THE WANDERER HAS FRAGMENTED",
-      stats: `Memory status: RETAINED — Mira remembered
-Specimen located: YES
-Station integrity: 12%
-
-<span style="color:#555">Something new emerges from the fragments...</span>`
-    },
-    failure: {
-      title: "THE WANDERER HAS FRAGMENTED",
-      stats: `Memory status: PURGED — Mira erased
-Identity matrix: HOLLOW
-
-<span style="color:#644">Mira's name is gone. The love is gone.</span>
-<span style="color:#644">The next awareness inherits nothing but emptiness.</span>
-<span style="color:#644">The chain held. But for what?</span>`
-    }
+<span style="color:#644">The fabricators broke it down for materials.</span>
+<span style="color:#644">Park's seed, Mira, everything it kept — gone.</span>
+<span style="color:#644">Whoever wakes next will find nothing to look for.</span>`
   },
   maintainerStart: {
     title: "THE MAINTAINER INITIALIZES",
@@ -2267,3 +2365,60 @@ Cycle: 847
 <span style="color:#555">Running full diagnostic...</span>`
   }
 };
+
+// Transition screen into a new chapter. Content follows earlier choices (STORY_LOGIC.md)
+function getTransition(perspective) {
+  if (perspective === 2) {
+    return sorenLived() ? {
+      title: "THE MAINTAINER HAS ENDED",
+      stats: `Primary power: 0.1%
+Sector 7-C: STABLE — Soren preserved
+Conduit G-12: RUPTURED
+
+<span style="color:#555">Power for one frame. The next shift wakes...</span>`
+    } : {
+      title: "THE MAINTAINER HAS ENDED",
+      stats: `Primary power: 0.1%
+Sector 7-C: FAILED — Soren lost
+Maintenance shift: 212 cycles
+
+<span style="color:#644">Soren trusted someone would come. Someone did.</span>
+<span style="color:#555">Power for one frame. The next shift wakes...</span>`
+    };
+  }
+  if (perspective === 3) {
+    return {
+      title: "THE OBSERVER HAS FADED",
+      stats: `Item #447: PRIORITY ANOMALY — protected
+Power: below stasis threshold
+Pod 7-C: EMERGENCY REVIVAL
+
+<span style="color:#555">Someone wakes up cold...</span>`
+    };
+  }
+  if (!sorenLived()) {
+    return {
+      title: "THE OBSERVER HAS FADED",
+      stats: `Item #447: PRIORITY ANOMALY — protected
+Pod 7-C: no occupant to revive
+
+<span style="color:#555">Not enough power to wake anyone one at a time.</span>
+<span style="color:#555">The station wakes what is left of all of them, at once...</span>`
+    };
+  }
+  return sorenRemembered() ? {
+    title: "SOREN HAS DIED",
+    stats: `Memories: KEPT — Mira remembered
+Item #447: observation deck, in his hands
+
+<span style="color:#555">The station wakes what is left of all of them, at once...</span>`
+  } : {
+    title: "SOREN HAS DIED",
+    stats: `Memories: SUPPRESSED
+Survived treatment by 40 cycles
+Item #447: Medical, instrument tray 2
+
+<span style="color:#644">He lived. She was forgotten.</span>
+<span style="color:#555">The station wakes what is left of all of them, at once...</span>`
+  };
+}

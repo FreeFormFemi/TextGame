@@ -11,8 +11,9 @@ const state = {
   decay: 0,
   perspective: 1, // 1=Maintainer, 2=Observer, 3=Wanderer, 4=Inheritor
   location: 'command',
-  specimenLocation: 'storage', // storage -> observation (auto) -> observation -> carried
-  observerCycles: 100, // Cycle counter for Observer (decrements with actions)
+  specimenLocation: 'storage', // storage -> observation (station) -> carried / observation / medical
+  crystalDestroyed: false, // Set when the Observer fails to protect #447 — the story cannot continue
+  observerCycles: 60, // Archive shutdown countdown for Observer (decrements with actions)
   wandererProximity: 5, // 0-10, affects Wanderer text clarity (higher = clearer)
   previousText: null,
   visits: {
@@ -45,15 +46,21 @@ const state = {
     wanderer_purge_choice: null,
     wanderer_found_specimen: false,
     wanderer_heard_message: false,
+    wanderer_took_specimen: false,
+    wanderer_heard_name: false,
     // Inheritor flags
     inheritor_final_choice: null,
     inheritor_echo_maintainer: false,
     inheritor_echo_observer: false,
     inheritor_echo_wanderer: false,
-    inheritor_echo_mira: false
-  },
-  chainIntact: true
+    inheritor_echo_mira: false,
+    inheritor_has_specimen: false
+  }
 };
+
+// Story branch helpers (see STORY_LOGIC.md)
+function sorenLived() { return state.flags.maintainer_power_choice === 'cryo'; }
+function sorenRemembered() { return sorenLived() && state.flags.wanderer_purge_choice === 'retain'; }
 
 // ============================================
 // DOM REFERENCES
@@ -62,6 +69,7 @@ let outputDiv, optionsDiv, headerDiv, transitionDiv, screenFrame;
 let selectedIndex = 0;
 let currentOptions = [];
 let isTransitioning = false;
+let inputLocked = false; // Blocks options while a scripted sequence plays
 
 function initDOMReferences() {
   outputDiv = document.getElementById('output');
@@ -74,35 +82,59 @@ function initDOMReferences() {
 // ============================================
 // TEXT DECAY SYSTEM
 // ============================================
+// Decay rises with each move between rooms. It blurs how rooms are perceived,
+// never what the player chose to read.
+const DECAY_MEDIUM = 8;
+const DECAY_MINIMAL = 16;
+
 function decay(full, medium, minimal) {
-  if (state.decay < 5) return full;
-  if (state.decay < 10) return medium;
+  if (state.decay < DECAY_MEDIUM) return full;
+  if (state.decay < DECAY_MINIMAL) return medium;
   return minimal;
 }
 
+// Content can be a function of state so text follows earlier choices
+function resolve(content) {
+  return typeof content === 'function' ? content(state) : content;
+}
+
 function getDecayText(textObj) {
+  textObj = resolve(textObj);
   if (typeof textObj === 'string') return textObj;
-  if (state.decay < 5) return textObj.full;
-  if (state.decay < 10) return textObj.medium;
+  if (state.decay < DECAY_MEDIUM) return textObj.full;
+  if (state.decay < DECAY_MINIMAL) return textObj.medium;
   return textObj.minimal;
 }
 
-function advanceTime() {
+// Logs and recordings are the story — always shown in full
+function getFullText(textObj) {
+  textObj = resolve(textObj);
+  return typeof textObj === 'string' ? textObj : textObj.full;
+}
+
+function advanceTime(isMove = false) {
   state.time++;
   const previousDecay = state.decay;
-  state.decay++;
+  if (isMove) state.decay++;
   updateDecayClass();
 
   // Observer cycle decrement
-  if (state.perspective === 2) {
+  if (state.perspective === 2 && !state.flags.observer_classification) {
     state.observerCycles = Math.max(0, state.observerCycles - 1);
     updateCycleCounter();
+    if (state.observerCycles === 20 || state.observerCycles === 10) {
+      setTimeout(() => showDecayNotice(`ARCHIVE NOTICE: Shutdown in ${state.observerCycles}. Unclassified items will be reclaimed by the fabricators.`), 600);
+    }
+    if (state.observerCycles === 0) {
+      inputLocked = true;
+      setTimeout(() => triggerObserverTimeout(), 1500);
+    }
   }
 
   // Check for decay threshold crossings
-  if (previousDecay < 5 && state.decay >= 5) {
+  if (previousDecay < DECAY_MEDIUM && state.decay >= DECAY_MEDIUM) {
     setTimeout(() => showDecayThresholdFeedback(1), 800);
-  } else if (previousDecay < 10 && state.decay >= 10) {
+  } else if (previousDecay < DECAY_MINIMAL && state.decay >= DECAY_MINIMAL) {
     setTimeout(() => showDecayThresholdFeedback(2), 800);
   }
 }
@@ -165,9 +197,9 @@ function showDecayThresholdFeedback(level) {
 function updateDecayClass() {
   const frame = document.getElementById('screen-frame');
   frame.classList.remove('decay-1', 'decay-2', 'decay-3');
-  if (state.decay >= 15) frame.classList.add('decay-3');
-  else if (state.decay >= 10) frame.classList.add('decay-2');
-  else if (state.decay >= 5) frame.classList.add('decay-1');
+  if (state.decay >= DECAY_MINIMAL + 6) frame.classList.add('decay-3');
+  else if (state.decay >= DECAY_MINIMAL) frame.classList.add('decay-2');
+  else if (state.decay >= DECAY_MEDIUM) frame.classList.add('decay-1');
 }
 
 // ============================================
@@ -214,7 +246,8 @@ function showNotice(text) {
 }
 
 function showInterior(text) {
-  if (state.decay >= 10) return; // No interior voice at high decay
+  text = resolve(text);
+  if (!text || state.decay >= DECAY_MINIMAL) return; // No interior voice at high decay
   const p = document.createElement('div');
   p.className = 'paragraph interior';
   p.textContent = text;
@@ -307,7 +340,7 @@ function highlightOption(index) {
 }
 
 function selectOption(index) {
-  if (isTransitioning) return;
+  if (isTransitioning || inputLocked) return;
   if (index >= 0 && index < currentOptions.length) {
     currentOptions[index].action();
   }
@@ -338,8 +371,8 @@ function updateMap() {
   const adjacent = ROOM_CONNECTIONS[current] || [];
 
   const map = `
-    OBS
-     |
+OBS
+ |
 CMD-COR-QTR
      |   |
     AIR MED
@@ -394,7 +427,7 @@ function goto(locationId) {
     clearOutput();
     state.location = locationId;
     state.visits[locationId]++;
-    advanceTime();
+    advanceTime(true);
 
     // Wanderer proximity adjustment
     if (state.perspective === 3) {
@@ -417,7 +450,7 @@ function goto(locationId) {
 // Wanderer emotional proximity to specimen
 function updateWandererProximity(locationId) {
   const specimenRoom = state.specimenLocation;
-  if (locationId === specimenRoom) {
+  if (specimenRoom === 'carried' || locationId === specimenRoom) {
     // Near specimen: clarity increases
     state.wandererProximity = Math.min(10, state.wandererProximity + 3);
   } else if (ROOM_CONNECTIONS[locationId]?.includes(specimenRoom)) {
@@ -439,6 +472,7 @@ function getWandererText(clear, confused, fragmented) {
 // Get text for Wanderer considering both decay AND proximity
 // proximityObj has: { clear, confused, fragmented } - each with { full, medium, minimal }
 function getWandererDecayText(textObj) {
+  textObj = resolve(textObj);
   // If it's a simple object without proximity variants, use standard decay
   if (!textObj.clear) return getDecayText(textObj);
 
@@ -487,6 +521,8 @@ function renderLocation(locationId) {
     descObj = isFirst ? content.description.first : content.description.repeat;
   }
 
+  descObj = resolve(descObj);
+
   // Wanderer uses proximity + decay; others use just decay
   if (state.perspective === 3 && descObj.clear) {
     showText(getWandererDecayText(descObj));
@@ -495,14 +531,38 @@ function renderLocation(locationId) {
   }
 
   // Notice
-  const notice = getLocationNotice(locationId, content);
+  const notice = resolve(getLocationNotice(locationId, content));
   if (notice) showNotice(notice);
+
+  // Wanderer hears his own name paged after taking the crystal
+  if (state.perspective === 3 && state.flags.wanderer_took_specimen &&
+      !state.flags.wanderer_purge_choice && locationId !== 'medical' && !state.flags.wanderer_heard_name) {
+    state.flags.wanderer_heard_name = true;
+    showInterior("Soren. That's— that's me. That's my name. She used to say it like a question when she wanted me to look up.");
+  }
 
   // Options
   displayOptions(getLocationOptions(locationId));
 }
 
 function getLocationNotice(locationId, content) {
+  // Wanderer: Medical pages him once he has the crystal
+  if (state.perspective === 3 && state.flags.wanderer_took_specimen && !state.flags.wanderer_purge_choice) {
+    if (locationId === 'medical') return content.notices.purgeWarning;
+    return "MEDICAL BAY — PAGING SOREN, K. NEURAL CASCADE DETECTED. REPORT TO MEDICAL IMMEDIATELY.";
+  }
+
+  // Inheritor: the airlock is where it ends
+  if (locationId === 'airlock' && state.perspective === 4 && !state.flags.inheritor_final_choice) {
+    if (!state.flags.inheritor_has_specimen) {
+      return state.visits.airlock === 1 ? content.notices.first : "The crystal isn't with me. I can't do this empty-handed.";
+    }
+    if (!canInheritorChoose()) {
+      return `I'm holding it. But I'm still mostly strangers to myself. Echoes found: ${getInheritorEchoCount()} of 3. I need to know who I'm deciding for.`;
+    }
+    return null;
+  }
+
   if (!content.notices) return null;
 
   // Special case handling for specific rooms
@@ -538,13 +598,6 @@ function getLocationNotice(locationId, content) {
     if (state.visits.storage === 1) return content.notices.first;
   }
 
-  // Wanderer Medical purge warning
-  if (locationId === 'medical' && state.perspective === 3) {
-    if (state.flags.wanderer_found_specimen && state.decay >= 7 && !state.flags.wanderer_purge_choice) {
-      return content.notices.purgeWarning;
-    }
-  }
-
   // Wanderer Observation specimen notice
   if (locationId === 'observation' && state.perspective === 3) {
     if (state.specimenLocation === 'observation') {
@@ -557,18 +610,10 @@ function getLocationNotice(locationId, content) {
     }
   }
 
-  // Inheritor Observation echo notice
-  if (locationId === 'observation' && state.perspective === 4) {
-    if (canInheritorChoose()) {
-      return content.notices.echoesComplete;
-    } else {
-      const count = getInheritorEchoCount();
-      if (state.visits[locationId] === 1) {
-        return content.notices.first;
-      } else {
-        return `Echoes absorbed: ${count} of 3 required. The choice remains locked.`;
-      }
-    }
+  // Inheritor: once enough echoes are found, point to the airlock
+  if (state.perspective === 4 && canInheritorChoose() && content.notices.echoesComplete &&
+      !state.flags.inheritor_final_choice) {
+    return content.notices.echoesComplete;
   }
 
   // Default first-visit notice
@@ -602,26 +647,23 @@ function getLocationOptions(locationId) {
     }
   }
 
-  // Special: Observation final choice (Inheritor) - requires 3+ echoes
-  if (locationId === 'observation' && state.perspective === 4) {
-    if (canInheritorChoose() && !state.flags.inheritor_final_choice) {
-      opts.push({ text: "Make the final choice", action: () => {
+  // Special: Airlock final choice (Inheritor) - must carry the crystal and know who they are
+  if (locationId === 'airlock' && state.perspective === 4) {
+    if (state.flags.inheritor_has_specimen && canInheritorChoose() && !state.flags.inheritor_final_choice) {
+      opts.push({ text: "Cycle the inner door", action: () => {
         advanceTime();
-        showText(getDecayText({
-          full: "The moment has come. Three awarenesses held the chain so I could reach this point. Their echoes live in me now. What do I do with what they gave me?",
-          medium: "The moment. Three held the chain. Their echoes in me. What do I do?",
-          minimal: "Moment. Echoes. Choose."
-        }));
-        setTimeout(() => triggerInheritorChoice(), 1500);
+        showText("The inner door opens. The chamber is small and very cold. The crystal is the only warm thing in it. Behind me, the corridor runs back toward Medical and the fabricator. Ahead, the outer door.");
+        inputLocked = true;
+        setTimeout(() => { inputLocked = false; triggerInheritorChoice(); }, 1500);
       }});
       addNavigationOptions(opts, locationId);
       return opts;
     }
   }
 
-  // Special: Medical purge choice (Wanderer)
+  // Special: Medical purge choice (Wanderer) - he is paged here after taking the crystal
   if (locationId === 'medical' && state.perspective === 3) {
-    if (state.flags.wanderer_found_specimen && state.decay >= 7 && !state.flags.wanderer_purge_choice) {
+    if (state.flags.wanderer_took_specimen && !state.flags.wanderer_purge_choice) {
       opts.push({ text: "Listen to the machines", action: triggerMemoryPurgeChoice });
       addNavigationOptions(opts, locationId);
       return opts;
@@ -633,6 +675,11 @@ function getLocationOptions(locationId) {
     content.actions.forEach(action => {
       // Check specimen requirement
       if (action.requiresSpecimen && state.specimenLocation !== locationId) {
+        return;
+      }
+
+      // Story-branch condition (function of state)
+      if (action.showIf && !action.showIf(state)) {
         return;
       }
 
@@ -664,16 +711,16 @@ function getLocationOptions(locationId) {
           advanceTime();
           if (action.flag) state.flags[action.flag] = true;
 
-          // Handle specimen movement (Wanderer takes it to Observation)
-          if (action.movesSpecimen && state.perspective === 3) {
-            state.specimenLocation = 'observation';
+          // Picking up the crystal
+          if (action.takesSpecimen) {
+            state.specimenLocation = 'carried';
           }
 
-          // Use terminal styling for data/log readouts
+          // Results are what the player chose to read: always shown in full
           if (action.terminal) {
-            showTerminalData(getDecayText(action.result));
+            showTerminalData(getFullText(action.result));
           } else {
-            showText(getDecayText(action.result));
+            showText(getFullText(action.result));
           }
           if (action.interior) showInterior(action.interior);
 
@@ -832,22 +879,24 @@ function playIntro(onComplete) {
 // ============================================
 // ENDINGS
 // ============================================
-function triggerSuccessEnding() {
+// ending: 'light' (the crystal held everything) or 'star' (it held less, gives back less)
+function triggerSuccessEnding(ending = 'light') {
   const fade = document.getElementById('fade');
   const field = document.getElementById('end-field');
   const text = fade.querySelector('.end-text');
+  const isStar = ending === 'star';
 
-  fade.classList.add('white');
+  if (!isStar) fade.classList.add('white');
   // Use custom success message if configured
-  const successMsg = window.gameConfig?.success || 'Let there be light.';
+  const successMsg = isStar ? 'One star. The one that stayed.' : (window.gameConfig?.success || 'Let there be light.');
   text.textContent = successMsg;
-  text.style.color = '#111';
+  text.style.color = isStar ? '#ccc' : '#111';
 
   field.style.cssText = `
     position: absolute; inset: 0;
     display: flex; justify-content: center; align-items: center;
     font-family: "IBM Plex Mono", monospace;
-    font-size: 10px; color: #000; white-space: pre;
+    font-size: 10px; color: ${isStar ? '#ddd' : '#000'}; white-space: pre;
     opacity: 0; transition: opacity 0.5s;
   `;
 
@@ -861,14 +910,15 @@ function triggerSuccessEnding() {
     const symbols = ['.', '*', 'o', 'O', '+'];
     let particles = [];
 
-    for (let i = 0; i < 120; i++) {
+    for (let i = 0; i < (isStar ? 1 : 120); i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = Math.random() * 0.8 + 0.3;
       particles.push({
         x: cx, y: cy,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed * 0.5,
-        sym: symbols[Math.floor(Math.random() * symbols.length)]
+        // The single star stays where it is
+        vx: isStar ? 0 : Math.cos(angle) * speed,
+        vy: isStar ? 0 : Math.sin(angle) * speed * 0.5,
+        sym: isStar ? '*' : symbols[Math.floor(Math.random() * symbols.length)]
       });
     }
 
@@ -889,7 +939,7 @@ function triggerSuccessEnding() {
 
       if (frame > 40) {
         clearInterval(interval);
-        field.style.opacity = '0';
+        if (!isStar) field.style.opacity = '0';
       }
     }, 50);
   }, 500);

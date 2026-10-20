@@ -1,31 +1,67 @@
 /* ============================================
    MAIN GAME LOGIC
    Critical choices, perspective transitions, game start
+   Story causality is documented in STORY_LOGIC.md
    ============================================ */
 
+// Plays a list of [delayMs, fn] steps in order
+function sequence(steps) {
+  let t = 0;
+  steps.forEach(([delay, fn]) => {
+    t += delay;
+    setTimeout(fn, t);
+  });
+}
+
+// Shared layout for every critical choice. Choice scenes always show in full.
+function presentChoice(choice, options) {
+  advanceTime();
+  clearOutput();
+  inputLocked = true;
+  showSystemAlert(choice.alert);
+
+  sequence([
+    [500, () => showSystemPrompt(getFullText(choice.prompt))],
+    [800, () => {
+      showText(getFullText(choice.description), 'environment');
+      showInterior(choice.interior);
+      inputLocked = false;
+      displayOptions(options);
+    }]
+  ]);
+}
+
+// Shows an outcome's result, followup and interior, then continues
+function playOutcome(outcome, next) {
+  inputLocked = true;
+  displayOptions([]);
+  showText(getFullText(outcome.result), 'environment');
+  sequence([
+    [1500, () => {
+      showText(getFullText(outcome.followup), 'environment');
+      showInterior(outcome.interior);
+    }],
+    [2500, next]
+  ]);
+}
+
+// Plays a death/end sequence of text lines, then continues
+function playEndSequence(alert, lines, next) {
+  clearOutput();
+  showSystemAlert(alert);
+  const steps = lines.map((line, i) => [i === 0 ? 800 : 1500, () => showText(getFullText(line), 'environment')]);
+  steps.push([1500, next]);
+  sequence(steps);
+}
+
 // ============================================
-// CRITICAL CHOICE: POWER ALLOCATION
+// CHAPTER 1: MAINTAINER — POWER ALLOCATION
 // ============================================
 function triggerPowerAllocationChoice() {
   const choice = CRITICAL_CHOICES.maintainer_power;
-  advanceTime();
-  clearOutput();
-
-  showSystemAlert(choice.alert);
-
-  setTimeout(() => {
-    showSystemPrompt(choice.prompt);
-
-    setTimeout(() => {
-      showText(getDecayText(choice.description), 'environment');
-      if (state.decay < 8) showInterior(choice.interior);
-
-      displayOptions([
-        { text: choice.options[0].text, action: () => makePowerChoice('cryo') },
-        { text: choice.options[1].text, action: () => makePowerChoice('life_support') }
-      ]);
-    }, 800);
-  }, 500);
+  presentChoice(choice, choice.options.map(opt => ({
+    text: opt.text, action: () => makePowerChoice(opt.value)
+  })));
 }
 
 function makePowerChoice(choice) {
@@ -33,74 +69,20 @@ function makePowerChoice(choice) {
   state.flags.maintainer_power_choice = choice;
   advanceTime();
   clearOutput();
-
-  if (choice === 'cryo') {
-    const outcome = choiceData.outcomes.cryo;
-    showText(getDecayText(outcome.result), 'environment');
-
-    setTimeout(() => {
-      showText(getDecayText(outcome.followup), 'environment');
-      if (state.decay < 10) showInterior(outcome.interior);
-      setTimeout(() => triggerMaintainerDeath(), 2000);
-    }, 1500);
-  } else {
-    state.chainIntact = false;
-    const outcome = choiceData.outcomes.life_support;
-    showText(getDecayText(outcome.result), 'environment');
-
-    setTimeout(() => {
-      showText(getDecayText(outcome.followup), 'environment');
-      setTimeout(() => triggerMaintainerDeath(), 2000);
-    }, 1500);
-  }
-}
-
-function triggerMaintainerDeath() {
-  const death = CRITICAL_CHOICES.maintainer_power.death;
-  clearOutput();
-
-  showSystemAlert(death.alert);
-
-  setTimeout(() => {
-    showText(getDecayText(death.sequence[0]), 'environment');
-
-    setTimeout(() => {
-      showText(getDecayText(death.sequence[1]), 'environment');
-
-      setTimeout(() => {
-        showText(death.sequence[2], 'environment');
-
-        setTimeout(() => {
-          transitionToPerspective(2);
-        }, 1500);
-      }, 1000);
-    }, 1500);
-  }, 800);
+  playOutcome(choiceData.outcomes[choice], () => {
+    const death = choiceData.death[choice];
+    playEndSequence(death.alert, death.sequence, () => transitionToPerspective(2));
+  });
 }
 
 // ============================================
-// CRITICAL CHOICE: SPECIMEN CLASSIFICATION
+// CHAPTER 2: OBSERVER — CLASSIFICATION
 // ============================================
 function triggerSpecimenClassification() {
   const choice = CRITICAL_CHOICES.observer_classification;
-  advanceTime();
-  clearOutput();
-
-  showSystemAlert(choice.alert);
-
-  setTimeout(() => {
-    showSystemPrompt(choice.prompt);
-
-    setTimeout(() => {
-      showText(getDecayText(choice.description), 'environment');
-      showInterior(choice.interior);
-
-      displayOptions(choice.options.map(opt => ({
-        text: opt.text,
-        action: () => makeClassificationChoice(opt.value)
-      })));
-    }, 800);
-  }, 500);
+  presentChoice(choice, choice.options.map(opt => ({
+    text: opt.text, action: () => makeClassificationChoice(opt.value)
+  })));
 }
 
 function makeClassificationChoice(choice) {
@@ -109,167 +91,79 @@ function makeClassificationChoice(choice) {
   advanceTime();
   clearOutput();
 
-  if (choice === 'anomaly') {
-    const outcome = choiceData.outcomes.anomaly;
-    showText(getDecayText(outcome.result), 'environment');
-
-    setTimeout(() => {
-      showText(getDecayText(outcome.followup), 'environment');
-      showInterior(outcome.interior);
-      setTimeout(() => triggerObserverEnd(), 2500);
-    }, 1500);
-  } else {
-    state.chainIntact = false;
+  let outcome = choiceData.outcomes[choice];
+  if (choice !== 'anomaly') {
+    // Every lower class ends with the crystal in the fabricators (R3)
+    state.crystalDestroyed = true;
     const label = choiceData.outcomes.labels[choice];
-    let result = getDecayText(choiceData.outcomes.wrong.result).replace('%LABEL%', label);
-    showText(result, 'environment');
-
-    setTimeout(() => {
-      showText(getDecayText(choiceData.outcomes.wrong.followup), 'environment');
-      setTimeout(() => triggerObserverEnd(), 2500);
-    }, 1500);
+    const fill = t => ({ full: t.full.replace('%LABEL%', label), medium: t.medium.replace('%LABEL%', label), minimal: t.minimal });
+    outcome = { result: fill(outcome.result), followup: outcome.followup, interior: outcome.interior };
   }
+  playOutcome(outcome, triggerObserverEnd);
+}
+
+// Archive countdown ran out before classification
+function triggerObserverTimeout() {
+  if (state.flags.observer_classification) return;
+  state.flags.observer_classification = 'timeout';
+  state.crystalDestroyed = true;
+  clearOutput();
+  displayOptions([]);
+  playOutcome(CRITICAL_CHOICES.observer_classification.timeout, triggerObserverEnd);
 }
 
 function triggerObserverEnd() {
   const end = CRITICAL_CHOICES.observer_classification.end;
-  clearOutput();
-
-  showSystemAlert(end.alert);
-
-  setTimeout(() => {
-    showText(getDecayText(end.sequence[0]), 'environment');
-
-    setTimeout(() => {
-      showText(getDecayText(end.sequence[1]), 'environment');
-      showInterior(end.interior);
-
-      setTimeout(() => {
-        showText(end.final, 'environment');
-
-        setTimeout(() => {
-          showText("...", 'environment');
-
-          setTimeout(() => {
-            transitionToPerspective(3);
-          }, 1500);
-        }, 1000);
-      }, 2000);
-    }, 1500);
-  }, 800);
+  playEndSequence(end.alert, resolve(end.sequence), () => {
+    // R4: the Observer going dark drops power below stasis — the pod in 7-C opens
+    if (state.crystalDestroyed) {
+      showRunEnded('nothingLeft');
+    } else if (sorenLived()) {
+      transitionToPerspective(3);
+    } else {
+      transitionToPerspective(4);
+    }
+  });
 }
 
 // ============================================
-// CRITICAL CHOICE: MEMORY PURGE (WANDERER)
+// CHAPTER 3: WANDERER — MEMORY SUPPRESSION
 // ============================================
 function triggerMemoryPurgeChoice() {
   const choice = CRITICAL_CHOICES.wanderer_purge;
-  advanceTime();
-  clearOutput();
-
-  showSystemAlert(choice.alert);
-
-  setTimeout(() => {
-    showSystemPrompt(choice.prompt);
-
-    setTimeout(() => {
-      showText(getDecayText(choice.description), 'environment');
-      showInterior(choice.interior);
-
-      displayOptions([
-        { text: choice.options[0].text, action: () => makePurgeChoice('purge') },
-        { text: choice.options[1].text, action: () => makePurgeChoice('retain') }
-      ]);
-    }, 800);
-  }, 500);
+  presentChoice(choice, choice.options.map(opt => ({
+    text: opt.text, action: () => makePurgeChoice(opt.value)
+  })));
 }
 
 function makePurgeChoice(choice) {
   const choiceData = CRITICAL_CHOICES.wanderer_purge;
   state.flags.wanderer_purge_choice = choice;
+  // Kept: he carries her up to the viewport. Purged: he leaves the crystal on a tray.
+  state.specimenLocation = choice === 'retain' ? 'observation' : 'medical';
   advanceTime();
   clearOutput();
-
-  if (choice === 'retain') {
-    // Correct choice
-    const outcome = choiceData.outcomes.retain;
-    showText(getDecayText(outcome.result), 'environment');
-
-    setTimeout(() => {
-      showText(getDecayText(outcome.followup), 'environment');
-      showInterior(outcome.interior);
-      setTimeout(() => triggerWandererDeath(true), 2500);
-    }, 1500);
-  } else {
-    // Wrong choice - chain broken
-    state.chainIntact = false;
-    const outcome = choiceData.outcomes.purge;
-    showText(getDecayText(outcome.result), 'environment');
-
-    setTimeout(() => {
-      showText(getDecayText(outcome.followup), 'environment');
-      setTimeout(() => triggerWandererDeath(false), 2500);
-    }, 1500);
-  }
+  playOutcome(choiceData.outcomes[choice], () => triggerWandererDeath(choice));
 }
 
-function triggerWandererDeath(correct) {
-  const death = CRITICAL_CHOICES.wanderer_purge.death;
-  const sequence = correct ? death.correct : death.wrong;
-  clearOutput();
-
-  showSystemAlert(death.alert);
-
-  // Light UI glitch
+function triggerWandererDeath(choice) {
+  const death = CRITICAL_CHOICES.wanderer_purge.death[choice];
   const screenFrame = document.getElementById('screen-frame');
-  screenFrame.classList.add('glitch');
-
-  setTimeout(() => {
-    showText(getDecayText(sequence[0]), 'environment');
-
-    setTimeout(() => {
-      // Another glitch pulse
-      screenFrame.classList.remove('glitch');
-      void screenFrame.offsetWidth;
-      screenFrame.classList.add('glitch');
-
-      showText(getDecayText(sequence[1]), 'environment');
-
-      setTimeout(() => {
-        showText(sequence[2] || "...", 'environment');
-        screenFrame.classList.remove('glitch');
-
-        setTimeout(() => {
-          transitionToPerspective(4);
-        }, 1500);
-      }, 1000);
-    }, 1500);
-  }, 800);
+  if (choice === 'retain') screenFrame.classList.add('glitch');
+  playEndSequence(death.alert, death.sequence, () => {
+    screenFrame.classList.remove('glitch');
+    transitionToPerspective(4);
+  });
 }
 
 // ============================================
-// CRITICAL CHOICE: FINAL RELEASE (INHERITOR)
+// CHAPTER 4: INHERITOR — RELEASE
 // ============================================
 function triggerInheritorChoice() {
   const choice = CRITICAL_CHOICES.inheritor_release;
-  advanceTime();
-  clearOutput();
-
-  showSystemAlert(choice.alert);
-
-  setTimeout(() => {
-    showSystemPrompt(choice.prompt);
-
-    setTimeout(() => {
-      showText(getDecayText(choice.description), 'environment');
-      showInterior(choice.interior);
-
-      displayOptions([
-        { text: choice.options[0].text, action: () => makeInheritorChoice('release') },
-        { text: choice.options[1].text, action: () => makeInheritorChoice('consume') }
-      ]);
-    }, 800);
-  }, 500);
+  presentChoice(choice, choice.options.map(opt => ({
+    text: opt.text, action: () => makeInheritorChoice(opt.value)
+  })));
 }
 
 function makeInheritorChoice(choice) {
@@ -277,134 +171,94 @@ function makeInheritorChoice(choice) {
   state.flags.inheritor_final_choice = choice;
   advanceTime();
   clearOutput();
-
-  if (choice === 'release') {
-    // Correct choice - success ending
-    const outcome = choiceData.outcomes.release;
-    showText(getDecayText(outcome.result), 'environment');
-
-    setTimeout(() => {
-      showText(getDecayText(outcome.followup), 'environment');
-      showInterior(outcome.interior);
-      setTimeout(() => triggerInheritorEnd(true), 2500);
-    }, 1500);
-  } else {
-    // Wrong choice - failure ending
-    const outcome = choiceData.outcomes.consume;
-    showText(getDecayText(outcome.result), 'environment');
-
-    setTimeout(() => {
-      showText(getDecayText(outcome.followup), 'environment');
-      showInterior(outcome.interior);
-      setTimeout(() => triggerInheritorEnd(false), 2500);
-    }, 1500);
-  }
+  playOutcome(choiceData.outcomes[choice], () => triggerInheritorEnd(choice));
 }
 
-function triggerInheritorEnd(success) {
+function triggerInheritorEnd(choice) {
   const end = CRITICAL_CHOICES.inheritor_release.end;
-  const sequence = success ? end.success : end.failure;
-  clearOutput();
-
-  showSystemAlert(end.alert);
-
-  setTimeout(() => {
-    showText(getDecayText(sequence[0]), 'environment');
-
-    setTimeout(() => {
-      showText(getDecayText(sequence[1]), 'environment');
-
-      setTimeout(() => {
-        if (success) {
-          triggerSuccessEnding();
-        } else {
-          triggerFailureEnding();
-        }
-      }, 2000);
-    }, 1500);
-  }, 800);
+  // What the crystal gives back depends on what it was given (R2)
+  const ending = choice === 'consume' ? 'dark' : (sorenRemembered() ? 'light' : 'star');
+  playEndSequence(end.alert, end[ending], () => {
+    if (ending === 'dark') triggerFailureEnding();
+    else triggerSuccessEnding(ending);
+  });
 }
 
 // ============================================
-// PERSPECTIVE TRANSITIONS
+// PERSPECTIVE TRANSITIONS & CHECKPOINTS
 // ============================================
+let checkpoint = null;
+
 function transitionToPerspective(newPerspective) {
   const transitionEl = document.getElementById('perspective-transition');
-  const textEl = transitionEl.querySelector('.transition-text');
-  const statsEl = transitionEl.querySelector('.stats');
+  const trans = getTransition(newPerspective);
 
+  transitionEl.querySelector('.transition-text').textContent = trans.title;
+  transitionEl.querySelector('.stats').innerHTML = trans.stats;
   transitionEl.classList.add('active');
 
-  // Get transition content
-  let transitionKey;
-  if (newPerspective === 2) transitionKey = 'toObserver';
-  else if (newPerspective === 3) transitionKey = 'toWanderer';
-  else if (newPerspective === 4) transitionKey = 'toInheritor';
-
-  const transData = TRANSITIONS[transitionKey];
-  const variant = state.chainIntact ? 'success' : 'failure';
-
-  textEl.textContent = transData[variant].title;
-  statsEl.innerHTML = transData[variant].stats;
-
-  if (!state.chainIntact) {
-    setTimeout(() => showFailureScreen(), 4000);
-    return;
-  }
-
   setTimeout(() => {
-    // Reset state for new perspective
-    state.perspective = newPerspective;
-    state.decay = 0;
-    state.time = 0;
-    Object.keys(state.visits).forEach(k => state.visits[k] = 0);
-
-    // Move specimen to observation for Observer (auto-moved by station protocol)
-    if (newPerspective === 2) {
-      state.specimenLocation = 'observation';
-    }
-
-    const perspData = PERSPECTIVES[newPerspective];
-    state.location = perspData.startLocation;
-    state.visits[perspData.startLocation]++;
-
-    updateDecayClass();
-    clearOutput();
-
-    // Hide the old transition, then play boot sequence
     transitionEl.classList.remove('active');
-
-    setTimeout(() => {
-      // Play boot sequence for new perspective
-      playBootSequence(newPerspective, () => {
-        updateHeader();
-        updateSidePanel();
-
-        // Show arrival text
-        showText(getDecayText(perspData.arrivalText), 'environment');
-
-        setTimeout(() => {
-          showText(getDecayText(perspData.arrivalText2), 'environment');
-          showInterior(perspData.arrivalInterior);
-
-          renderLocation(state.location);
-        }, 1500);
-      });
-    }, 1000);
-  }, 3000);
+    setTimeout(() => beginPerspective(newPerspective), 1000);
+  }, 4000);
 }
 
-function showFailureScreen() {
+// Starts a chapter. The state on entry is saved so a dead run can be retried from here.
+function beginPerspective(perspective) {
+  checkpoint = JSON.parse(JSON.stringify(state));
+
+  state.perspective = perspective;
+  state.decay = 0;
+  state.time = 0;
+  Object.keys(state.visits).forEach(k => state.visits[k] = 0);
+
+  // The station brings #447 up to the archive for the Observer to judge
+  if (perspective === 2) state.specimenLocation = 'observation';
+
+  const perspData = PERSPECTIVES[perspective];
+  state.location = perspData.startLocation;
+  state.visits[perspData.startLocation]++;
+
+  inputLocked = false;
+  updateDecayClass();
+  clearOutput();
+  displayOptions([]);
+
+  playBootSequence(perspective, () => {
+    updateHeader();
+    updateSidePanel();
+    showText(getDecayText(perspData.arrivalText), 'environment');
+
+    setTimeout(() => {
+      showText(getDecayText(perspData.arrivalText2), 'environment');
+      showInterior(perspData.arrivalInterior);
+      renderLocation(state.location);
+    }, 1500);
+  });
+}
+
+// A run that cannot continue: explain why, offer a retry from the last chapter
+function showRunEnded(key) {
   const transitionEl = document.getElementById('perspective-transition');
-  const statsEl = transitionEl.querySelector('.stats');
+  const trans = TRANSITIONS[key];
+  transitionEl.querySelector('.transition-text').textContent = trans.title;
+  transitionEl.querySelector('.stats').innerHTML = trans.stats +
+    `<br><br><span style="color:#888">[1] Return to the ${PERSPECTIVES[state.perspective].name.toLowerCase()}'s waking &nbsp; [2] Begin again</span>`;
+  transitionEl.classList.add('active');
 
-  statsEl.innerHTML += `<br><br><span style="color:#666; cursor:pointer" onclick="location.reload()">[ Press any key to restart ]</span>`;
-
-  const restartHandler = (e) => {
-    document.removeEventListener('keydown', restartHandler);
-    location.reload();
+  const handler = (e) => {
+    if (e.key === '1') {
+      document.removeEventListener('keydown', handler);
+      const retry = state.perspective;
+      const snap = JSON.parse(JSON.stringify(checkpoint));
+      Object.keys(snap).forEach(k => state[k] = snap[k]);
+      transitionEl.classList.remove('active');
+      setTimeout(() => beginPerspective(retry), 800);
+    } else if (e.key === '2') {
+      location.reload();
+    }
   };
-  document.addEventListener('keydown', restartHandler);
+  setTimeout(() => document.addEventListener('keydown', handler), 1500);
 }
 
 // ============================================
@@ -456,7 +310,7 @@ function playBootSequence(perspective, onComplete) {
   }, totalDelay);
   totalDelay += timing.init;
 
-  // Phase 2.5: Pre-type (Observer only - shows prior awareness)
+  // Phase 2.5: Pre-type (Observer only - shows the previous shift)
   if (bootData.preType && timing.preType) {
     setTimeout(() => {
       typeLabelEl.textContent = bootData.preType;
@@ -555,24 +409,7 @@ function updateStationStatus(perspective) {
 // GAME START
 // ============================================
 function startGame() {
-  const perspData = PERSPECTIVES[state.perspective];
-
-  // Play boot sequence instead of old transition
-  playBootSequence(state.perspective, () => {
-    state.location = perspData.startLocation;
-    state.visits[perspData.startLocation]++;
-    updateHeader();
-    updateSidePanel();
-
-    // Show arrival text
-    showText(getDecayText(perspData.arrivalText), 'environment');
-
-    setTimeout(() => {
-      showText(getDecayText(perspData.arrivalText2), 'environment');
-      showInterior(perspData.arrivalInterior);
-      displayOptions(getLocationOptions(state.location));
-    }, 1500);
-  });
+  beginPerspective(state.perspective);
 }
 
 // ============================================
